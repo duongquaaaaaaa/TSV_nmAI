@@ -38,6 +38,19 @@ target_link_libraries(AZtrain PRIVATE box2d)
 target_include_directories(AZtrain PRIVATE include NEAT NEAT/core NEAT/train)
 target_compile_features(AZtrain PRIVATE cxx_std_17)   # std::filesystem
 
+# ── AZgameBridge: Python bridge binary for A* ─────────────────────────────────
+add_executable(AZgameBridge Astar/bridge_main.cpp game.cpp map.cpp renderer.cpp tank.cpp bullet.cpp portal.cpp item.cpp)
+target_link_libraries(AZgameBridge PRIVATE box2d raylib)
+target_include_directories(AZgameBridge PRIVATE include NEAT NEAT/core NEAT/train)
+
+# ── Custom target to run A* Pathfinding visualization ─────────────────────────
+add_custom_target(run_astar
+    COMMAND python3 Astar/python/pathfind_shell.py
+    DEPENDS AZgameBridge
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Launching A* pathfinding visualization..."
+)
+
 # ── OpenMP: Parallel genome evaluation (all cores) ──────────────────────────
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
