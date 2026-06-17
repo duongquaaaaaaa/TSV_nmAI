@@ -1,5 +1,5 @@
 #pragma once
-#include "Constants.h"
+#include "constants.h"
 #include "tank.h"
 #include "bullet.h"
 

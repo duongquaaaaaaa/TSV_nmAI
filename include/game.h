@@ -1,6 +1,6 @@
 #pragma once
 #include "bullet.h"
-#include "Constants.h"
+#include "constants.h"
 #include "item.h"
 #include "map.h"
 #include "portal.h"
