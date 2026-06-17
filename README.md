@@ -122,7 +122,7 @@ cd build
 # Xem AI Phase 1 đánh với bia đứng yên (map trống)
 ./AZgame.exe --watch ../agents/Phase1_Basic_final.bin stationary 1
 
-# Xem AI Phase 3 đánh với bot nghiệp dư (mê cung, có khiên)
+# Xem AI Phase 3 đánh với bot nghiệp dư (mê cung, không khiên)
 ./AZgame.exe --watch ../agents/Phase3_Fighter_final.bin rule_v2 3
 
 # Xem AI Phase 4 đánh với Sniper Boss
@@ -438,8 +438,8 @@ Mạng nơ-ron nhận **36 tín hiệu đầu vào** mỗi frame (1/60 giây):
 | **13–16** | Bullet #1 | Vị trí + vận tốc viên đạn gần nhất (local frame) | [-1, 1] |
 | **17–20** | Bullet #2 | Vị trí + vận tốc viên đạn gần thứ 2 | [-1, 1] |
 | **21** | Ammo Level | 1 − (đạn đang bay / 5) | [0, 1] |
-| **22** | Shield Active | Khiên đang bật? | {0, 1} |
-| **23** | Shield Cooldown | 1 − (thời gian chờ / 15s) | [0, 1] |
+| **22** | Shield Active | Khiên đang bật? (Không hoạt động khi train vì đã tắt khiên) | {0, 1} |
+| **23** | Shield Cooldown | 1 − (thời gian chờ / 15s) (Không hoạt động khi train vì đã tắt khiên) | [0, 1] |
 | **24–30** | Radar (7 tia) | Khoảng cách tới vật cản: 0°, ±30°, ±90°, ±150° | [0, 1] |
 | **31** | Angular Velocity | Tốc độ xoay / 5.0 | [-1, 1] |
 | **32** | Enemy Ammo | 1 − (đạn địch đang bay / 5) | [0, 1] |
@@ -466,7 +466,7 @@ Mạng nơ-ron nhận **36 tín hiệu đầu vào** mỗi frame (1/60 giây):
 | **2** | sigmoid > 0.5 **VÀ** > output[3] | Quay trái |
 | **3** | sigmoid > 0.5 **VÀ** > output[2] | Quay phải |
 | **4** | sigmoid > 0.5 | Bắn |
-| **5** | sigmoid > 0.5 | Khiên |
+| **5** | sigmoid > 0.5 | Khiên (Không hoạt động khi train vì đã tắt khiên) |
 
 **Exclusive actions**: Forward/Backward và TurnLeft/TurnRight là exclusive — chỉ hành động có giá trị cao hơn được thực thi. Điều này tránh AI bị "đơ" khi 2 output đều > 0.5.
 
@@ -522,10 +522,8 @@ Hệ thống 2 chế độ:
 - Bắn bừa / không thấy địch: phạt -4.0 × dt
 
 **Khiên (Phase 3):**
-- Bật khiên đúng lúc (có đạn bay tới): **+10.0 điểm** (one-shot, không nhân dt)
-- Bật khiên lãng phí: **-5.0 điểm**
-- Đang che đạn: +3.0 × dt
-- Né đạn bằng di chuyển: +2.0 × dt
+- **Đã tắt** (bỏ qua mọi thưởng/phạt liên quan bật khiên).
+- Thưởng né đạn bằng di chuyển: +2.0 × dt
 
 #### End-of-Episode Bonus
 
@@ -567,7 +565,7 @@ End-of-episode bonus mạnh hơn nhiều:
 - **Ngắm**: Lệch ~0.3 rad (nghiệp dư)
 - **Tầm bắn**: < 7m + phải thấy trực tiếp (LOS)
 - **Giới hạn đạn**: Tối đa 2 viên trên sân
-- **Mục đích**: Dạy AI né đạn + bắn trả + dùng khiên
+- **Mục đích**: Dạy AI né đạn + bắn trả
 
 ### V3 — Sniper Boss (Phase 4)
 
@@ -575,7 +573,7 @@ End-of-episode bonus mạnh hơn nhiều:
 - **Ngắm**: Lệch ±0.2 rad (rất chuẩn), chỉ bắn khi < 0.1 rad
 - **Tốc độ quay**: Chỉ quay 50% frame (nerf để AI có thời gian phản ứng)
 - **Radar**: 3 tia phía trước để thoát kẹt tường
-- **Khiên**: Phản xạ khi đạn bay tới < 2.5m
+- **Khiên**: Đã vô hiệu hóa (tắt khiên khi train)
 - **Giới hạn đạn**: Tối đa 2 viên trên sân
 - **Mục đích**: Ép AI phải phát triển kỹ năng chiến đấu nâng cao
 

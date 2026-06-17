@@ -156,9 +156,8 @@ inline float ComputeStepReward(const Game &game, int agentIdx, bool canSeeEnemy,
     // ══ KÊNH 1: VẬN ĐỘNG ══
 
     // [Anti-Kamikaze]: Phạt áp sát quá gần (< 1.8m)
-    // Bypass khi khiên ĐANG BẬT (trạng thái thực, không phải nút bấm)
-    bool shieldActive = (agentObs[22] > 0.5f);
-    if (outCurrDist < 1.8f && !(shieldActive && phase >= Phase::PHASE3)) {
+    // (Bypass khi khiên bật đã loại bỏ do khiên bị vô hiệu hóa khi train)
+    if (outCurrDist < 1.8f) {
       reward -= 5.0f * DT_SCALE;
     }
 
@@ -193,7 +192,7 @@ inline float ComputeStepReward(const Game &game, int agentIdx, bool canSeeEnemy,
       // ── ENGAGEMENT MODE (canSeeEnemy && dist <= 8m && !noseInWall) ──
 
       // [Anti-Retreat P3+]: Phạt đi LÙI khi THẤY ĐỊCH ở tầm bắn
-      // → Đây là exploit chính của "turtle": lùi xe + giơ khiên
+      // → Đây là exploit chính của "turtle": lùi xe cố thủ
       // NGOẠI TRỪ: (1) đạn đang bay tới (dangerAlert), (2) quá gần (< 3m) cần lùi ra sweet spot
       if (phase >= Phase::PHASE3 && actions.backward && !dangerAlert && outCurrDist >= 3.0f) {
         reward -= 6.0f * DT_SCALE;
@@ -243,24 +242,10 @@ inline float ComputeStepReward(const Game &game, int agentIdx, bool canSeeEnemy,
       reward += dotWp * 4.0f * DT_SCALE;
     }
 
-    // ══ KÊNH 4: KHIÊN (Phase 3+) ══
+    // ══ KÊNH 4: NÉ ĐẠN BẰNG DI CHUYỂN (Phase 3+) ══
     if (phase == Phase::PHASE3) {
       // Đã tắt khiên, nên bỏ qua thưởng/phạt liên quan đến bật khiên
-      /*
-      bool shieldReady = (agentObs[23] > 0.99f);  // Cooldown xong chưa?
-      if (actions.shield && shieldReady && !shieldActive) {
-        if (dangerAlert) {
-          reward += 10.0f;
-        } else {
-          reward -= 5.0f;
-        }
-      }
-      if (shieldActive) {
-        if (dangerAlert) reward += 3.0f * DT_SCALE;
-      }
-      */
-
-      // Thưởng né đạn bằng di chuyển (dù có khiên hay không)
+      // Thưởng né đạn bằng di chuyển
       if (dangerAlert && speedNow > 1.0f)
         reward += 2.0f * DT_SCALE;
     }

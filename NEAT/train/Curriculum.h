@@ -83,7 +83,7 @@ inline PhaseConfig GetPhaseConfig(Phase phase) {
         EnemyType::RULE_V2, // Đối thủ: Fighter (Bắn nghiệp dư, không khiên)
         1500,
         10, // 8→10: Fighter bắn trả = variance cao, cần nhiều seed
-        350,    // 250→350: thêm enemy bắn trả + shield = 2 kỹ năng mới
+        350,    // 250→350: thêm enemy bắn trả (kỹ năng mới)
         480.0f, // Engagement mode không có move reward → step total thấp hơn
         false,
         false,
@@ -96,7 +96,7 @@ inline PhaseConfig GetPhaseConfig(Phase phase) {
 
   case Phase::PHASE4:
     return {Phase::PHASE4, MapMode::NORMAL,
-            EnemyType::RULE_V3, // Đối thủ: Sniper Boss (Ngắm chuẩn, có khiên)
+            EnemyType::RULE_V3, // Đối thủ: Sniper Boss (Ngắm chuẩn, không khiên)
             1500, 10, 300,
             400.0f, // V3 cực mạnh, cần 70% winrate để đạt 400 (500 cần 80% =
                     // quá khó)

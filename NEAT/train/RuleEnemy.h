@@ -8,12 +8,12 @@
 #endif
 
 /**
- * @brief Rule-based enemy variant used in Phase 3+ training.
- *        Produces a TankActions for the enemy player based on simple
- * heuristics.
+ * @brief Phiên bản bot đối thủ chạy bằng luật (Rule-based) dùng trong huấn luyện từ Phase 2 trở đi.
+ *        Trả về TankActions cho bot dựa trên các heuristic đơn giản.
  *
- * VARIANT 1 (Phase 3): Turn toward agent + advance + shoot when aligned.
- * VARIANT 2 (Phase 4): Adds bullet-dodging and item-seeking behaviour.
+ * VARIANT 1 (Phase 2): Wanderer (di chuyển ngẫu nhiên, không bắn).
+ * VARIANT 2 (Phase 3): Fighter (đuổi theo agent, bắn nghiệp dư, không dùng khiên).
+ * VARIANT 3 (Phase 4): Sniper Boss (đuổi theo agent, dừng xe ngắm bắn chuẩn, không dùng khiên).
  */
 
 // ── Helper: normalise angle to [-π, π] ───────────────────────────────────────
