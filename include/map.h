@@ -18,6 +18,14 @@ enum class MapMode {
  */
 class GameMap {
 public:
+    /// Dữ liệu tường dạng hình chữ nhật (tọa độ pixel, tâm, chiều rộng/cao)
+    struct WallRect {
+        float x;
+        float y;
+        float width;
+        float height;
+    };
+
     // ── Grid constants ──────────────────────────────────────────────────────
     static constexpr int   ROWS   = 6;
     static constexpr int   COLS   = 8;
@@ -31,6 +39,7 @@ public:
 
     // ── Core API ─────────────────────────────────────────────────────────
     void Build(b2World& world, MapMode mode = MapMode::NORMAL);
+    void BuildFromRects(b2World& world, const std::vector<WallRect>& rects);
     void Clear(b2World& world);
     b2Vec2 GetRandomCellCenter() const;
     const std::vector<b2Body*>& GetWalls() const { return walls; }
