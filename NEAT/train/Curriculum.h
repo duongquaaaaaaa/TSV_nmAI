@@ -87,7 +87,7 @@ inline PhaseConfig GetPhaseConfig(Phase phase) {
         480.0f, // Engagement mode không có move reward → step total thấp hơn
         false,
         false,
-        true, // Bắt đầu cho AI dùng Khiên
+        false, // Tắt khiên theo yêu cầu
         3.5f,
         3,
         10,    // 15→10: V2 bắn trả gây variance cao, 10 gen là đủ
@@ -100,7 +100,7 @@ inline PhaseConfig GetPhaseConfig(Phase phase) {
             1500, 10, 300,
             400.0f, // V3 cực mạnh, cần 70% winrate để đạt 400 (500 cần 80% =
                     // quá khó)
-            false, false, true, 7.0f, 5,
+            false, false, false, 7.0f, 5,
             10,    // Sparse reward variance cao, 10 gen là đủ
             0.35f, // 35% trộn RULE_V2 để AI ôn bài
             "Phase4_SniperBoss"};
@@ -111,7 +111,7 @@ inline PhaseConfig GetPhaseConfig(Phase phase) {
             1500, 12, 500,
             300.0f, // Self-play 50/50 chỉ cho ~365, threshold 300 = an toàn cho
                     // streak
-            false, false, true, 7.0f, 5,
+            false, false, false, 7.0f, 5,
             10,    // Self-play variance cực cao, 10 gen là đủ
             0.50f, // 50% trộn RULE_V3 để giữ kỷ luật Sniper
             "Phase5_Tournament"};

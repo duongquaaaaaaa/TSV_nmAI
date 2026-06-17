@@ -245,25 +245,20 @@ inline float ComputeStepReward(const Game &game, int agentIdx, bool canSeeEnemy,
 
     // ══ KÊNH 4: KHIÊN (Phase 3+) ══
     if (phase == Phase::PHASE3) {
+      // Đã tắt khiên, nên bỏ qua thưởng/phạt liên quan đến bật khiên
+      /*
       bool shieldReady = (agentObs[23] > 0.99f);  // Cooldown xong chưa?
-      // shieldActive đã khai báo ở trên (dòng anti-kamikaze)
-
       if (actions.shield && shieldReady && !shieldActive) {
         if (dangerAlert) {
-          // ★ BẬT ĐÚNG LÚC: Đạn tới -> Thưởng NÓNG 1 lần lớn (không nhân DT)
           reward += 10.0f;
         } else {
-          // Bật khiên lãng phí -> Phạt NÓNG 1 lần (không nhân DT)
           reward -= 5.0f;
         }
       }
-
-      // Thưởng/phạt khi khiên đang active
       if (shieldActive) {
-        if (dangerAlert) {
-          reward += 3.0f * DT_SCALE;  // Đang che đạn → tốt
-        }
+        if (dangerAlert) reward += 3.0f * DT_SCALE;
       }
+      */
 
       // Thưởng né đạn bằng di chuyển (dù có khiên hay không)
       if (dangerAlert && speedNow > 1.0f)
