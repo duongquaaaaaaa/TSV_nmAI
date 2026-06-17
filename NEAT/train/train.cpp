@@ -117,8 +117,8 @@ static float RunEpisode(Network &agentNet, const PhaseConfig &cfg, int seed,
       // [VÁ LỖI TỰ SÁT]: Random bot xả đạn quá nhiều (cứ 8 frame 1 viên)
       // Giảm tần suất xuống cỡ 1 viên / 1.5 giây để tránh nó tự chết quá nhanh
       ra.shoot = (AZ::Rand() % 90 == 0);
-      // [VÁ LỖI KHIÊN]: Thi thoảng bật khiên để agent phải mệt mỏi hơn
-      ra.shield = (AZ::Rand() % 150 == 0);
+      // (Đã tắt khiên)
+      ra.shield = false;
       actions[1] = ra;
       break;
     }

@@ -140,7 +140,7 @@ inline TankActions GetRuleEnemyV2(const Game &game, int enemyIdx) {
   return act;
 }
 
-// ── Variant 3: Waypoint seeker + Sniper (Stop and Shoot) + Shield ────────────
+// ── Variant 3: Waypoint seeker + Sniper (Stop and Shoot) ────────────
 inline TankActions GetRuleEnemyV3(const Game &game, int enemyIdx) {
   TankActions act{};
 
@@ -236,7 +236,8 @@ inline TankActions GetRuleEnemyV3(const Game &game, int enemyIdx) {
       act.shoot = false;
   }
 
-  // 4. Logic Khiên: Phản xạ khi có đạn bay tới (DÀNH CHO PHASE 4+)
+  // 4. Logic Khiên: Phản xạ khi có đạn bay tới (Đã bị vô hiệu hóa)
+  /*
   if (me->shieldCooldownTimer <= 0.0f) {
     for (auto *b : game.bullets) {
       if (b->ownerPlayerIndex == me->playerIndex)
@@ -252,6 +253,7 @@ inline TankActions GetRuleEnemyV3(const Game &game, int enemyIdx) {
       }
     }
   }
+  */
 
   return act;
 }

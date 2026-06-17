@@ -367,17 +367,17 @@ AI được dạy theo lộ trình từ dễ đến khó. Mỗi Phase thay đổ
 |---|---|
 | **Đối thủ** | Rule V2 — Fighter (đuổi theo + bắn nghiệp dư, ngắm lệch ~0.3 rad) |
 | **Bản đồ** | Normal (mê cung) |
-| **Khiên** | **BẬT** (AI phải học dùng khiên) |
+| **Khiên** | **Tắt** |
 | **Đạn** | Tồn tại 3.5s, tối đa 3 viên |
 | **Ngưỡng thăng hạng** | 480 điểm (streak 10 gen) |
 | **League mixing** | 25% trộn Rule V1 (ôn mê cung) |
-| **Mục tiêu học** | Né đạn + bắn trả + dùng khiên đúng lúc |
+| **Mục tiêu học** | Né đạn + bắn trả |
 
 #### Phase 4: Sniper Boss (Xạ thủ)
 
 | Thuộc tính | Giá trị |
 |---|---|
-| **Đối thủ** | Rule V3 — Sniper Boss (ngắm chuẩn ~0.1 rad, dừng xe bắn, có khiên phản xạ) |
+| **Đối thủ** | Rule V3 — Sniper Boss (ngắm chuẩn ~0.1 rad, dừng xe bắn) |
 | **Bản đồ** | Normal (mê cung) |
 | **Đạn** | Tồn tại 7s, tối đa 5 viên |
 | **Ngưỡng thăng hạng** | 400 điểm (streak 10 gen) |
