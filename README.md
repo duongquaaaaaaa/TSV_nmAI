@@ -388,7 +388,7 @@ AI được dạy theo lộ trình từ dễ đến khó. Mỗi Phase thay đổ
 
 | Thuộc tính | Giá trị |
 |---|---|
-| **Đối thủ** | Self-play (bản sao tốt nhất thế hệ trước) |
+| **Đối thủ** | Self-play (cập nhật bản sao tốt nhất mỗi 10 thế hệ) |
 | **Bản đồ** | Normal (mê cung) |
 | **Đạn** | Tồn tại 7s, tối đa 5 viên |
 | **Ngưỡng thăng hạng** | 300 điểm (streak 10 gen) |

@@ -203,6 +203,9 @@ static bool RunPhase(Population &pop, const PhaseConfig &cfg,
 
   int streak = 0;
   bool promoted = false;
+  const Genome *currentEnemyGen = frozenEnemy;
+  Genome selfPlayOpponentCopy;
+
   for (int gen = 0; gen < cfg.maxGenerations; gen++) {
     std::vector<int> seeds;
     seeds.reserve(cfg.kSeeds);
@@ -210,15 +213,28 @@ static bool RunPhase(Population &pop, const PhaseConfig &cfg,
       seeds.push_back(42000 + gen * 100 + k);
 
     pop.EvaluateAll([&](Genome &g) -> float {
-      return EvaluateGenome(g, cfg, seeds, frozenEnemy);
+      return EvaluateGenome(g, cfg, seeds, currentEnemyGen);
     });
 
     float best = -1e30f, avg = 0.0f;
-    for (auto &g : pop.genomes) {
-      best = std::max(best, g.fitness);
-      avg += g.fitness;
+    int bestIdx = 0;
+    for (int i = 0; i < (int)pop.genomes.size(); i++) {
+      float f = pop.genomes[i].fitness;
+      if (f > best) {
+        best = f;
+        bestIdx = i;
+      }
+      avg += f;
     }
     avg /= (float)pop.genomes.size();
+
+    // Cập nhật đối thủ Self-play định kỳ mỗi 10 thế hệ để tránh học lệch
+    if (cfg.enemyType == EnemyType::SELF_PLAY && (gen + 1) % 10 == 0) {
+      selfPlayOpponentCopy = pop.genomes[bestIdx];
+      currentEnemyGen = &selfPlayOpponentCopy;
+      printf("      [Self-Play] Đã cập nhật đối thủ thế hệ tiếp theo thành bản sao tốt nhất thế hệ %d\n", gen + 1);
+    }
+
     pop.Evolve();
     pop.PrintStats();
 
