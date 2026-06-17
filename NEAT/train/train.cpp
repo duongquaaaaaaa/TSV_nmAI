@@ -1,4 +1,4 @@
-#include "../neat/Population.h"
+#include "../core/Population.h"
 #include "AZRandom.h"
 #include "Curriculum.h"
 #include "Fitness.h"

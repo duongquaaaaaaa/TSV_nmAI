@@ -27,15 +27,15 @@ add_executable(AZgame main.cpp game.cpp map.cpp renderer.cpp tank.cpp bullet.cpp
 target_link_libraries(AZgame PRIVATE box2d raylib)
 
 # 5. Chỉ định thư mục chứa các file Header (.h)
-target_include_directories(AZgame PRIVATE include neat train)
+target_include_directories(AZgame PRIVATE include NEAT NEAT/core NEAT/train)
 
 # ── AZtrain: headless training binary — NO Raylib dependency ─────────────────
 add_executable(AZtrain
-    train/train.cpp
+    NEAT/train/train.cpp
     game.cpp map.cpp tank.cpp bullet.cpp portal.cpp item.cpp
 )
 target_link_libraries(AZtrain PRIVATE box2d)
-target_include_directories(AZtrain PRIVATE include neat train)
+target_include_directories(AZtrain PRIVATE include NEAT NEAT/core NEAT/train)
 target_compile_features(AZtrain PRIVATE cxx_std_17)   # std::filesystem
 
 # ── OpenMP: Parallel genome evaluation (all cores) ──────────────────────────

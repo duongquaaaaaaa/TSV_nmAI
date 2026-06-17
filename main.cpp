@@ -6,7 +6,7 @@
 #include "game.h"
 #include "renderer.h"
 #include "ui.h"
-#include "neat/Network.h"
+#include "core/Network.h"
 #include "train/Observation.h"
 #include "train/Curriculum.h"
 #include "train/RuleEnemy.h"
