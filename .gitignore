@@ -3,6 +3,8 @@ build-py/
 .vscode/
 .cache/
 .clangd
+bridge_control.txt
+bridge_state.json
 __pycache__
 *.exe
 *.tmp
