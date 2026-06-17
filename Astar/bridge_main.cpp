@@ -1,4 +1,4 @@
-﻿#include <raylib.h>
+#include <raylib.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -11,7 +11,7 @@
 
 #include <box2d/box2d.h>
 
-#include "Constants.h"
+#include "constants.h"
 #include "game.h"
 #include "renderer.h"
 

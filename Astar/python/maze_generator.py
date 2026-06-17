@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _DEFAULT_OUT_DIR = os.path.join(_REPO_ROOT, "maps", "generated")
 
 
@@ -41,7 +41,7 @@ def _parse_constant(pattern: str, content: str) -> Optional[str]:
 
 def _load_screen_constants() -> Tuple[int, int, float]:
     defaults = (1024, 768, 30.0)
-    constants_path = os.path.join(_REPO_ROOT, "include", "Constants.h")
+    constants_path = os.path.join(_REPO_ROOT, "include", "constants.h")
     try:
         with open(constants_path, "r", encoding="utf-8") as f:
             content = f.read()

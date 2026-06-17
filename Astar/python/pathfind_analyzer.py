@@ -7,8 +7,10 @@ import argparse
 import signal
 import maze_generator
 
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-_EXE_PATH = os.path.join(_REPO_ROOT, "build", "AZgameBridge.exe")
+import platform
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_EXE_EXT = ".exe" if platform.system() == "Windows" else ""
+_EXE_PATH = os.path.join(_REPO_ROOT, "build", f"AZgameBridge{_EXE_EXT}")
 _LOG_PATH = os.path.join(_REPO_ROOT, "run", "telemetry.csv")
 
 class BatchAnalyzer:
@@ -44,7 +46,7 @@ class BatchAnalyzer:
                 env_vars["AZ_LOG"] = _LOG_PATH
                 
                 ctrl_proc = subprocess.Popen(
-                    [sys.executable, os.path.join(_REPO_ROOT, "python", "pathfind_controller.py")],
+                    [sys.executable, os.path.join(_REPO_ROOT, "Astar", "python", "pathfind_controller.py")],
                     env=env_vars
                 )
 

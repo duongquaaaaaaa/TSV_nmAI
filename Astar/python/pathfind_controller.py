@@ -12,7 +12,7 @@ from pathfind_env import BridgeEnv, heading_error
 from pathfind_planner import Planner
 
 
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _WAYPOINTS_FILE = os.path.join(_REPO_ROOT, "run", "bridge_waypoints.txt")
 _WAYPOINTS_TMP_DIR = os.path.join(_REPO_ROOT, "run", "bridge_waypoints_tmp")
 _LAST_WAYPOINTS_WRITE = 0.0

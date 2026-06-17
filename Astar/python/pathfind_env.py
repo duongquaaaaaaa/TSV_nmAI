@@ -23,11 +23,13 @@ ACTION_MAP = {
 class BridgeEnv:
 
     def __init__(self, exe_path: Optional[str] = None) -> None:
+        import platform
         here = os.path.abspath(os.path.dirname(__file__))
-        self.repo_root = os.path.abspath(os.path.join(here, ".."))
+        self.repo_root = os.path.abspath(os.path.join(here, "..", ".."))
+        ext = ".exe" if platform.system() == "Windows" else ""
         candidates = [
-            os.path.join(self.repo_root, "build-py", "AZgameBridge.exe"),
-            os.path.join(self.repo_root, "build", "AZgameBridge.exe"),
+            os.path.join(self.repo_root, "build-py", f"AZgameBridge{ext}"),
+            os.path.join(self.repo_root, "build", f"AZgameBridge{ext}"),
         ]
         existing = [p for p in candidates if os.path.exists(p)]
         if exe_path is not None:
