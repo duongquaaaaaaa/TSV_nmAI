@@ -27,22 +27,31 @@ add_subdirectory(box2d)
 
 find_package(raylib CONFIG REQUIRED)
 
-add_executable(AZgame main.cpp game.cpp map.cpp renderer.cpp tank.cpp bullet.cpp ui.cpp portal.cpp item.cpp bot.cpp ai_bot.cpp)
+add_executable(AZgame
+    main.cpp game.cpp map.cpp renderer.cpp tank.cpp bullet.cpp ui.cpp portal.cpp item.cpp
+    "reinforcement learning/bot.cpp"
+    "reinforcement learning/ai_bot.cpp")
 
-add_executable(AZgameBridge Astar/bridge_main.cpp game.cpp map.cpp renderer.cpp tank.cpp bullet.cpp portal.cpp item.cpp bot.cpp)
+add_executable(AZgameBridge
+    Astar/bridge_main.cpp game.cpp map.cpp renderer.cpp tank.cpp bullet.cpp portal.cpp item.cpp
+    "reinforcement learning/bot.cpp")
 
 # 4. Liên kết AZgame với thư viện box2d vừa được biên dịch từ thư mục con
 target_link_libraries(AZgame PRIVATE box2d raylib)
 target_link_libraries(AZgameBridge PRIVATE box2d raylib)
 
 # 5. Chỉ định thư mục chứa các file Header (.h)
-target_include_directories(AZgame PRIVATE include)
-target_include_directories(AZgameBridge PRIVATE include)
+target_include_directories(AZgame PRIVATE include "reinforcement learning")
+target_include_directories(AZgameBridge PRIVATE include "reinforcement learning")
 
 # ========================================================
 # KẾT NỐI RL (REINFORCEMENT LEARNING) BẰNG PYBIND11
 # ========================================================
 # Build thư viện azgame_env độc lập (không cần UI/Renderer)
-pybind11_add_module(azgame_env "reinforcement learning/rl_env_wrapper.cpp" game.cpp map.cpp tank.cpp bullet.cpp portal.cpp item.cpp renderer.cpp bot.cpp)
+pybind11_add_module(azgame_env
+    "reinforcement learning/rl_env_wrapper.cpp"
+    "reinforcement learning/bot.cpp"
+    "reinforcement learning/ai_bot.cpp"
+    game.cpp map.cpp tank.cpp bullet.cpp portal.cpp item.cpp renderer.cpp)
 target_link_libraries(azgame_env PRIVATE box2d raylib)
-target_include_directories(azgame_env PRIVATE include)
+target_include_directories(azgame_env PRIVATE include "reinforcement learning")
