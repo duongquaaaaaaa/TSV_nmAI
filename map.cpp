@@ -392,3 +392,320 @@ b2Vec2 GameMap::GetNextWaypoint(b2Vec2 agentPos, b2Vec2 enemyPos) const {
   b2Vec2 carrot(P1.x + lineDir.x * targetDist, P1.y + lineDir.y * targetDist);
   return carrot;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Classic Bot Pathfinding (A* with Fat Raycast and String Pulling)
+// ─────────────────────────────────────────────────────────────────────────────
+
+bool CheckClearance(b2World& world, b2Vec2 p1, b2Vec2 p2) {
+    b2Vec2 dir = p2 - p1;
+    float len = dir.Length();
+    if (len < 1e-4f) return true;
+    dir.Normalize();
+
+    b2Vec2 norm(-dir.y, dir.x);
+    float offset = 10.5f / SCALE;
+
+    struct ClearanceCast : public b2RayCastCallback {
+        bool hit = false;
+        float ReportFixture(b2Fixture* fixture, const b2Vec2&, const b2Vec2&, float) override {
+            if (fixture->GetBody()->GetType() == b2_staticBody) {
+                hit = true;
+                return 0.0f;
+            }
+            return -1.0f;
+        }
+    } c1, c2, c3;
+
+    world.RayCast(&c1, p1, p2);
+    if (c1.hit) return false;
+
+    world.RayCast(&c2, p1 + offset * norm, p2 + offset * norm);
+    if (c2.hit) return false;
+
+    world.RayCast(&c3, p1 - offset * norm, p2 - offset * norm);
+    if (c3.hit) return false;
+
+    return true;
+}
+
+b2Vec2 GameMap::GetNextWaypoint(b2World& world, b2Vec2 start, b2Vec2 target, int& pathDistance, std::vector<b2Vec2>* outPath) const {
+    float cellW = CELL_W, cellH = CELL_H;
+    float offsetX = OffsetX();
+    float offsetY = OffsetY();
+
+    auto toGrid = [&](b2Vec2 physPos, int& row, int& col) {
+        float screenX = physPos.x * SCALE;
+        float screenY = SCREEN_HEIGHT - physPos.y * SCALE;
+        col = (int)floorf((screenX - offsetX) / cellW);
+        row = (int)floorf((screenY - offsetY) / cellH);
+        if (col < 0) col = 0; if (col >= COLS) col = COLS - 1;
+        if (row < 0) row = 0; if (row >= ROWS) row = ROWS - 1;
+    };
+
+    auto toPhysics = [&](int row, int col) -> b2Vec2 {
+        float x = offsetX + col * cellW + cellW / 2.0f;
+        float y = offsetY + row * cellH + cellH / 2.0f;
+        return b2Vec2(x / SCALE, (SCREEN_HEIGHT - y) / SCALE);
+    };
+
+    int startRow, startCol, targetRow, targetCol;
+    toGrid(start, startRow, startCol);
+    toGrid(target, targetRow, targetCol);
+
+    if (startRow == targetRow && startCol == targetCol) {
+        pathDistance = 0;
+        if (outPath) {
+            outPath->clear();
+            outPath->push_back(start);
+            outPath->push_back(target);
+        }
+        return target;
+    }
+
+    float dist[ROWS][COLS];
+    int parentR[ROWS][COLS], parentC[ROWS][COLS];
+    for (int r = 0; r < ROWS; r++) {
+        for (int c = 0; c < COLS; c++) {
+            dist[r][c] = 1e9f;
+            parentR[r][c] = -1;
+            parentC[r][c] = -1;
+        }
+    }
+
+    struct Node {
+        int r, c;
+        float f, g;
+        bool operator>(const Node& other) const { return f > other.f; }
+    };
+    std::priority_queue<Node, std::vector<Node>, std::greater<Node>> pq;
+
+    dist[targetRow][targetCol] = 0.0f;
+    pq.push({targetRow, targetCol, 0.0f, 0.0f});
+
+    while (!pq.empty()) {
+        Node top = pq.top(); pq.pop();
+        int r = top.r, c = top.c;
+        if (top.g > dist[r][c]) continue;
+        if (r == startRow && c == startCol) break;
+
+        auto checkNeighbor = [&](int nr, int nc, bool hasWall) {
+            if (!hasWall) {
+                int wallCount = 0;
+                if (hWalls[nr][nc]) wallCount++;
+                if (hWalls[nr+1][nc]) wallCount++;
+                if (vWalls[nr][nc]) wallCount++;
+                if (vWalls[nr][nc+1]) wallCount++;
+
+                float moveCost = 1.0f;
+                if (wallCount >= 3) moveCost += 20.0f;
+                else if (wallCount == 2) moveCost += 3.0f;
+                else if (wallCount == 1) moveCost += 0.5f;
+
+                float new_g = dist[r][c] + moveCost;
+                if (new_g < dist[nr][nc]) {
+                    dist[nr][nc] = new_g;
+                    parentR[nr][nc] = r;
+                    parentC[nr][nc] = c;
+
+                    float h = (float)(std::abs(nr - startRow) + std::abs(nc - startCol));
+                    h *= 1.001f;
+
+                    pq.push({nr, nc, new_g + h, new_g});
+                }
+            }
+        };
+
+        if (r > 0) checkNeighbor(r - 1, c, hWalls[r][c]);
+        if (r < ROWS - 1) checkNeighbor(r + 1, c, hWalls[r+1][c]);
+        if (c > 0) checkNeighbor(r, c - 1, vWalls[r][c]);
+        if (c < COLS - 1) checkNeighbor(r, c + 1, vWalls[r][c+1]);
+    }
+
+    if (parentR[startRow][startCol] == -1) {
+        pathDistance = 999;
+        if (outPath) {
+            outPath->clear();
+            outPath->push_back(start);
+            outPath->push_back(target);
+        }
+        return target;
+    }
+
+    pathDistance = (int)dist[startRow][startCol];
+
+    std::vector<b2Vec2> pathNodes;
+    int currR = startRow, currC = startCol;
+    while (currR != targetRow || currC != targetCol) {
+        int nR = parentR[currR][currC];
+        int nC = parentC[currR][currC];
+        if (nR == -1) break;
+        currR = nR;
+        currC = nC;
+        pathNodes.push_back(toPhysics(currR, currC));
+    }
+
+    pathNodes.pop_back();
+    pathNodes.push_back(target);
+
+    b2Vec2 bestWaypoint = pathNodes[0];
+    for (int i = pathNodes.size() - 1; i >= 0; i--) {
+        if (CheckClearance(world, start, pathNodes[i])) {
+            bestWaypoint = pathNodes[i];
+            break;
+        }
+    }
+
+    if (outPath) {
+        outPath->clear();
+        outPath->push_back(start);
+        outPath->push_back(bestWaypoint);
+
+        bool found = false;
+        for (size_t i = 0; i < pathNodes.size(); i++) {
+            if (found) {
+                outPath->push_back(pathNodes[i]);
+            } else if (pathNodes[i].x == bestWaypoint.x && pathNodes[i].y == bestWaypoint.y) {
+                found = true;
+            }
+        }
+    }
+
+    return bestWaypoint;
+}
+
+std::vector<b2Vec2> GameMap::GetFullPath(b2World& world, b2Vec2 start, b2Vec2 target, const std::vector<std::pair<int,int>>& blockedCells) const {
+    float cellW = CELL_W, cellH = CELL_H;
+    float offsetX = OffsetX();
+    float offsetY = OffsetY();
+
+    auto toGrid = [&](b2Vec2 physPos, int& row, int& col) {
+        float screenX = physPos.x * SCALE;
+        float screenY = SCREEN_HEIGHT - physPos.y * SCALE;
+        col = (int)floorf((screenX - offsetX) / cellW);
+        row = (int)floorf((screenY - offsetY) / cellH);
+        if (col < 0) col = 0; if (col >= COLS) col = COLS - 1;
+        if (row < 0) row = 0; if (row >= ROWS) row = ROWS - 1;
+    };
+
+    auto toPhysics = [&](int row, int col) -> b2Vec2 {
+        float x = offsetX + col * cellW + cellW / 2.0f;
+        float y = offsetY + row * cellH + cellH / 2.0f;
+        return b2Vec2(x / SCALE, (SCREEN_HEIGHT - y) / SCALE);
+    };
+
+    int startRow, startCol, targetRow, targetCol;
+    toGrid(start, startRow, startCol);
+    toGrid(target, targetRow, targetCol);
+
+    std::vector<b2Vec2> result;
+    result.push_back(start);
+
+    if (startRow == targetRow && startCol == targetCol) {
+        result.push_back(target);
+        return result;
+    }
+
+    float dist[ROWS][COLS];
+    int parentR[ROWS][COLS], parentC[ROWS][COLS];
+    for (int r = 0; r < ROWS; r++) {
+        for (int c = 0; c < COLS; c++) {
+            dist[r][c] = 1e9f;
+            parentR[r][c] = -1;
+            parentC[r][c] = -1;
+        }
+    }
+
+    struct Node {
+        int r, c;
+        float f, g;
+        bool operator>(const Node& other) const { return f > other.f; }
+    };
+    std::priority_queue<Node, std::vector<Node>, std::greater<Node>> pq;
+
+    dist[targetRow][targetCol] = 0.0f;
+    pq.push({targetRow, targetCol, 0.0f, 0.0f});
+
+    while (!pq.empty()) {
+        Node top = pq.top(); pq.pop();
+        int r = top.r, c = top.c;
+        if (top.g > dist[r][c]) continue;
+        if (r == startRow && c == startCol) break;
+
+        auto checkNeighbor = [&](int nr, int nc, bool hasWall) {
+            if (!hasWall) {
+                int wallCount = 0;
+                if (hWalls[nr][nc]) wallCount++;
+                if (hWalls[nr+1][nc]) wallCount++;
+                if (vWalls[nr][nc]) wallCount++;
+                if (vWalls[nr][nc+1]) wallCount++;
+
+                float moveCost = 1.0f;
+                if (wallCount >= 3) moveCost += 20.0f;
+                else if (wallCount == 2) moveCost += 3.0f;
+                else if (wallCount == 1) moveCost += 0.5f;
+
+                for (const auto& bc : blockedCells) {
+                    if (nr == bc.first && nc == bc.second) {
+                        moveCost += 50.0f;
+                        break;
+                    }
+                }
+
+                float new_g = dist[r][c] + moveCost;
+                if (new_g < dist[nr][nc]) {
+                    dist[nr][nc] = new_g;
+                    parentR[nr][nc] = r;
+                    parentC[nr][nc] = c;
+
+                    float h = (float)(std::abs(nr - startRow) + std::abs(nc - startCol));
+                    h *= 1.001f;
+
+                    pq.push({nr, nc, new_g + h, new_g});
+                }
+            }
+        };
+
+        if (r > 0) checkNeighbor(r - 1, c, hWalls[r][c]);
+        if (r < ROWS - 1) checkNeighbor(r + 1, c, hWalls[r+1][c]);
+        if (c > 0) checkNeighbor(r, c - 1, vWalls[r][c]);
+        if (c < COLS - 1) checkNeighbor(r, c + 1, vWalls[r][c+1]);
+    }
+
+    if (parentR[startRow][startCol] == -1) {
+        result.push_back(target);
+        return result;
+    }
+
+    std::vector<b2Vec2> rawNodes;
+    int currR = startRow, currC = startCol;
+    while (currR != targetRow || currC != targetCol) {
+        int nR = parentR[currR][currC];
+        int nC = parentC[currR][currC];
+        if (nR == -1) break;
+        currR = nR;
+        currC = nC;
+        rawNodes.push_back(toPhysics(currR, currC));
+    }
+    rawNodes.push_back(target);
+
+    b2Vec2 current = start;
+    size_t currentIdx = 0;
+
+    while (currentIdx < rawNodes.size()) {
+        int maxLookAhead = std::min((int)rawNodes.size() - 1, (int)currentIdx + 3);
+        int bestIdx = (int)currentIdx;
+        for (int i = maxLookAhead; i >= (int)currentIdx; i--) {
+            if (CheckClearance(world, current, rawNodes[i])) {
+                bestIdx = i;
+                break;
+            }
+        }
+
+        result.push_back(rawNodes[bestIdx]);
+        current = rawNodes[bestIdx];
+        currentIdx = bestIdx + 1;
+    }
+
+    return result;
+}

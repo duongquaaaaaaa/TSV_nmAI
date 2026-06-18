@@ -58,9 +58,18 @@ public:
     /// In OPEN mode, returns enemyPos directly (no maze to navigate).
     b2Vec2 GetNextWaypoint(b2Vec2 agentPos, b2Vec2 enemyPos) const;
 
+    /// Get Next Waypoint using full Box2D smoothing (Traditional A* bot)
+    b2Vec2 GetNextWaypoint(b2World& world, b2Vec2 start, b2Vec2 target, int& pathDistance, std::vector<b2Vec2>* outPath = nullptr) const;
+
+    /// Get full smoothed path for traditional bot path drawing
+    std::vector<b2Vec2> GetFullPath(b2World& world, b2Vec2 start, b2Vec2 target, const std::vector<std::pair<int,int>>& blockedCells = {}) const;
+
 private:
     std::vector<b2Body*> walls;
 
     float OffsetX() const { return (SCREEN_WIDTH  - COLS * CELL_W) / 2.0f; }
     float OffsetY() const { return (SCREEN_HEIGHT - ROWS * CELL_H) / 2.0f - 50.0f; }
 };
+
+/// Kiểm tra xem có tường nào chắn giữa p1 và p2 không (dùng Fat Raycast có độ dày bằng thân xe)
+bool CheckClearance(b2World& world, b2Vec2 p1, b2Vec2 p2);

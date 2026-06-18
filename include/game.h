@@ -12,60 +12,61 @@
  *
  * Thiết kế cho cả human play và RL training:
  * - Human play: main.cpp đọc bàn phím → TankActions → Game::Update()
- * - RL train:   agent output → TankActions → Game::Update() (không cần cửa sổ
- * đồ họa)
+ * - RL train:   agent output → TankActions → Game::Update() (không cần cửa sổ đồ họa)
  *
  * Mọi thành viên public để Renderer và RL agent có thể đọc trạng thái.
  */
 class Game {
 public:
-  // ---- Thành phần vật lý & game objects ----
-  b2World world;                 ///< Môi trường mô phỏng Box2D (trọng lực 0)
-  std::vector<Tank *> tanks;     ///< Xe tăng đang sống
-  std::vector<Bullet *> bullets; ///< Đạn đang bay
-  std::vector<Item *> items;     ///< Hộp vũ khí trên sàn
-  GameMap map;                   ///< Hệ thống mê cung
-  Portal portal;                 ///< Cổng dịch chuyển
+    // ---- Thành phần vật lý & game objects ----
+    b2World world;                      ///< Môi trường mô phỏng Box2D (trọng lực 0)
+    std::vector<Tank*> tanks;           ///< Xe tăng đang sống
+    std::vector<Bullet*> bullets;       ///< Đạn đang bay
+    std::vector<Item*> items;           ///< Hộp vũ khí trên sàn
+    GameMap map;                        ///< Hệ thống mê cung
+    Portal portal;                      ///< Cổng dịch chuyển
 
-  // ---- Thông số & cài đặt ----
-  float itemSpawnTimer;   ///< Đếm ngược sinh vật phẩm
-  int playerScores[4];    ///< Bảng điểm 4 slot (chiến thắng nhờ sống sót)
-  int playerKills[4];     ///< [MỚI] Bảng điểm kill thực sự (ai bắn trúng)
-  int numPlayers;         ///< Số lượng người chơi
-  bool needsRestart;      ///< Cờ cần reset match
-  bool portalsEnabled;    ///< Bật/tắt cổng dịch chuyển
-  bool itemsEnabled;      ///< Bật/tắt vật phẩm
-  bool shieldsEnabled;    ///< Bật/tắt khiên
-  bool mapEnabled = true; ///< Bật/tắt map (Dành cho nhánh RL)
-  float bulletLifespan =
-      7.0f; ///< [MỚI] Thời gian đạn tồn tại (được chỉnh bởi Curriculum)
-  int maxBullets =
-      3; ///< [MỚI] Giới hạn số đạn bắn ra (mặc định 3 cho thực chiến)
-  MapMode mapMode =
-      MapMode::NORMAL; ///< Kiểu bản đồ (dùng bởi training curriculum)
+    // ---- Thông số & cài đặt ----
+    float itemSpawnTimer;               ///< Đếm ngược sinh vật phẩm
+    int playerScores[4];                ///< Bảng điểm 4 slot (chiến thắng nhờ sống sót)
+    int playerKills[4];                 ///< [MỚI] Bảng điểm kill thực sự (ai bắn trúng, dùng cho NEAT/RL)
+    int numPlayers;                     ///< Số lượng người chơi
+    bool needsRestart;                  ///< Cờ cần reset match
+    bool portalsEnabled;                ///< Bật/tắt cổng dịch chuyển
+    bool itemsEnabled;                  ///< Bật/tắt vật phẩm
+    bool shieldsEnabled;                ///< Bật/tắt khiên
+    bool mapEnabled = true;             ///< Bật/tắt map (Dành cho nhánh RL/NEAT)
+    float bulletLifespan = 7.0f;        ///< [MỚI] Thời gian đạn tồn tại (được chỉnh bởi Curriculum)
+    int maxBullets = 3;                 ///< [MỚI] Giới hạn số đạn bắn ra (mặc định 3 cho thực chiến)
+    MapMode mapMode = MapMode::NORMAL;   ///< Kiểu bản đồ (dùng bởi training curriculum)
 
-  // ---- Cấu hình phím (chỉ dùng cho human play) ----
-  std::vector<PlayerConfig> configs;
+    // ---- Cấu hình phím (chỉ dùng cho human play) ----
+    std::vector<PlayerConfig> configs;
+    std::vector<b2Vec2> botPaths[4];    // Lưu đường đi A* để debug đồ họa
 
-  // ---- Bộ đếm Frame toàn cục (Dùng cho logic AI) ----
-  unsigned int frameCount = 0;
+    // ---- Debug: Bounce ray visualization ────
+    std::vector<b2Vec2> botBounceRays[4];   ///< Đường bounce (list of points)
+    b2Vec2 botBounceTarget[4] = {};          ///< Wall point đang nhắm
 
-  // ---- Sự kiện dùng cho hiệu ứng đồ họa (Renderer đọc) ----
-  std::vector<DeathEvent> recentDeaths; ///< Xe tăng bị tiêu diệt frame này
+    // ---- Bộ đếm Frame toàn cục (Dùng cho logic AI) ────
+    unsigned int frameCount = 0;
 
-  // ---- Lifecycle ----
-  Game();
-  ~Game();
+    // ---- Sự kiện dùng cho hiệu ứng đồ họa (Renderer đọc) ----
+    std::vector<DeathEvent> recentDeaths;  ///< Xe tăng bị tiêu diệt frame này
 
-  /// Khởi tạo bàn đấu mới: dọn sạch, sinh map, spawn xe tăng
-  void ResetMatch();
+    // ---- Lifecycle ----
+    Game();
+    ~Game();
 
-  /// Cập nhật logic game 1 frame. Actions[i] tương ứng với player index i.
-  void Update(const std::vector<TankActions> &actions, float dt);
+    /// Khởi tạo bàn đấu mới: dọn sạch, sinh map, spawn xe tăng
+    void ResetMatch();
 
-  /// Dọn dẹp đạn hết hạn, xử lý nổ Frag
-  void CleanUpBullets();
+    /// Cập nhật logic game 1 frame. Actions[i] tương ứng với player index i.
+    void Update(const std::vector<TankActions>& actions, float dt);
 
-  /// Dọn dẹp vật phẩm đã bị nhặt
-  void CleanUpItems();
+    /// Dọn dẹp đạn hết hạn, xử lý nổ Frag
+    void CleanUpBullets();
+
+    /// Dọn dẹp vật phẩm đã bị nhặt
+    void CleanUpItems();
 };
