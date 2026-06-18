@@ -3,12 +3,19 @@ build-py/
 .vscode/
 .cache/
 .clangd
+
 bridge_control.txt
 bridge_state.json
-__pycache__
+python/__pycache__/
 *.exe
 *.tmp
 bridge_waypoints.txt
 *.log
 maps/
 run/
+
+# Python & AI Training
+__pycache__/
+reinforcement learning/models/
+reinforcement learning/logs/
+*.zip
