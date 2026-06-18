@@ -29,11 +29,15 @@ find_package(raylib CONFIG REQUIRED)
 
 add_executable(AZgame main.cpp game.cpp map.cpp renderer.cpp tank.cpp bullet.cpp ui.cpp portal.cpp item.cpp bot.cpp ai_bot.cpp)
 
+add_executable(AZgameBridge Astar/bridge_main.cpp game.cpp map.cpp renderer.cpp tank.cpp bullet.cpp portal.cpp item.cpp bot.cpp)
+
 # 4. Liên kết AZgame với thư viện box2d vừa được biên dịch từ thư mục con
 target_link_libraries(AZgame PRIVATE box2d raylib)
+target_link_libraries(AZgameBridge PRIVATE box2d raylib)
 
 # 5. Chỉ định thư mục chứa các file Header (.h)
 target_include_directories(AZgame PRIVATE include)
+target_include_directories(AZgameBridge PRIVATE include)
 
 # ========================================================
 # KẾT NỐI RL (REINFORCEMENT LEARNING) BẰNG PYBIND11
