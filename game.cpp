@@ -3,7 +3,7 @@
 /**
  * @brief Khởi tạo Game engine. Không đặt phím mặc định (do main.cpp/RL quyết định).
  */
-Game::Game() : world(b2Vec2(0.0f, 0.0f)), numPlayers(2), needsRestart(true), portalsEnabled(true), itemsEnabled(true), shieldsEnabled(true) {
+Game::Game() : world(b2Vec2(0.0f, 0.0f)), numPlayers(2), needsRestart(true), portalsEnabled(true), itemsEnabled(true), shieldsEnabled(true), mapEnabled(true) {
     itemSpawnTimer = 5.0f;
     for(int i = 0; i < 4; i++) playerScores[i] = 0;
     configs.resize(4);
@@ -28,7 +28,9 @@ void Game::ResetMatch() {
     for (Bullet* b : bullets) { world.DestroyBody(b->body); delete b; } bullets.clear();
     for (Item* item : items) { world.DestroyBody(item->body); delete item; } items.clear();
     itemSpawnTimer = 3.0f;
-    map.Build(world);
+    if (mapEnabled) {
+        map.Build(world);
+    }
 
     // Spawn xe tăng tại các ô đủ xa nhau
     std::vector<b2Vec2> spawnCells;
@@ -52,19 +54,11 @@ void Game::ResetMatch() {
 }
 
 /**
- * @brief Cập nhật logic game vòng lặp (1 Frame).
- * 
- * Đây là hàm ĐẦU NÃO của game. Mọi chuyển động, bắn súng, va chạm trong game 
- * đều được xử lý chỉ qua hàm này. Hàm này hoàn toàn mù tịt về giao diện 
- * (không biết Raylib là gì), nó chỉ biết làm toán (Box2D).
- * 
- * Q: Tại sao lại truyền `dt` (Delta Time) thay vì lấy thẳng biến hệ thống thời gian?
- * A: Để phục vụ AI! RL cần Fixed Timestep. Nếu ta truyền dt = 1/60 (số tĩnh), 
- * Model AI sẽ học chuẩn xác hoàn toàn (Deterministic), giúp train hiệu quả.
+ * @brief Cập nhật logic game 1 frame.
+ * @param actions Vector TankActions, indexed theo playerIndex.
+ * @param dt Delta time (giây).
  */
 void Game::Update(const std::vector<TankActions>& actions, float dt) {
-    // Xóa Log tử vong của Frame trước. 
-    // Chúng ta chỉ lưu những xe chết ở frame NÀY để Renderer biết chỗ tạo Vụ Nổ.
     recentDeaths.clear();
 
     // Sinh vật phẩm
@@ -78,16 +72,14 @@ void Game::Update(const std::vector<TankActions>& actions, float dt) {
         }
     }
 
-    // ---------------------------------------------------------
-    // BƯỚC 1: XỬ LÝ HÀNH ĐỘNG CỦA TỪNG XE TĂNG (Áp dụng Action)
-    // ---------------------------------------------------------
+    // Cập nhật từng xe tăng với action tương ứng
     for (size_t i = 0; i < tanks.size(); ) {
         Tank* t = tanks[i];
         TankActions act;
         if (t->playerIndex < (int)actions.size()) act = actions[t->playerIndex];
         t->Update(world, bullets, items, act, dt, shieldsEnabled);
         if (t->isDestroyed) {
-            recentDeaths.push_back({t->body->GetPosition(), t->playerIndex});
+            recentDeaths.push_back({t->body->GetPosition(), t->playerIndex, t->lastHitBy});
             world.DestroyBody(t->body); delete t;
             tanks.erase(tanks.begin() + i);
         } else {
@@ -95,9 +87,7 @@ void Game::Update(const std::vector<TankActions>& actions, float dt) {
         }
     }
 
-    // ---------------------------------------------------------
-    // BƯỚC 2: CẬP NHẬT TỌA ĐỘ ĐẠN (Bay, đổi hướng, hết hạn)
-    // ---------------------------------------------------------
+    // Cập nhật đạn
     for (Bullet* b : bullets) {
         b->Update(dt, tanks);
     }
@@ -108,21 +98,11 @@ void Game::Update(const std::vector<TankActions>& actions, float dt) {
         needsRestart = true;
     }
 
-    // ---------------------------------------------------------
-    // BƯỚC 4: CẬP NHẬT CỔNG DỊCH CHUYỂN
-    // ---------------------------------------------------------
+    // Cổng dịch chuyển
     if (!needsRestart && portalsEnabled) portal.Update(dt, tanks, bullets);
 
-    // ---------------------------------------------------------
-    // BƯỚC 5: TIẾN LÊN PHÍA TRƯỚC BẰNG MACHINE ENGINE (Box2D Step)
-    // ---------------------------------------------------------
-    // Bản thân Engine Box2D sẽ nhảy 1 tick (bằng đúng khoảng thời gian dt)
-    // Đây là lúc các Hàm tính Va Chạm thực sự chạy ngầm.
+    // Bước vật lý Box2D + dọn dẹp
     world.Step(dt, 6, 2);
-    
-    // ---------------------------------------------------------
-    // BƯỚC 6: DỌN RÁC BỘ NHỚ (Garbage Collection)
-    // ---------------------------------------------------------
     CleanUpBullets();
     CleanUpItems();
 }
