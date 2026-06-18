@@ -25,19 +25,20 @@ Bullet::Bullet(b2World &world, b2Vec2 position, b2Vec2 velocity, bool _isLaser,
   fix.density = 1.0f;
   fix.friction = 0.0f;
   fix.restitution = 1.0f;
+  fix.restitutionThreshold = 0.0f;  // Nảy hoàn hảo ở MỌI góc chạm (kể cả xiên)
   fix.filter.groupIndex = -1;
   body->CreateFixture(&fix);
 
   if (isLaser) {
     velocity.x *= 8.0f; // Laser đi cực nhanh
     velocity.y *= 8.0f;
-    time = 0.5f; // laser tồn tại ngắn (theo RL)
+    time = 0.5f; // laser tồn tại ngắn
   } else if (isMissile) {
     velocity.x *= 1.5f;
     velocity.y *= 1.5f;
-    time = 5.0f; // Rút ngắn thời gian tồn tại tên lửa (theo RL)
+    time = 5.0f; // Rút ngắn thời gian tồn tại tên lửa
   } else if (isFrag) {
-    time = 1.5f; // Đạn to tự động nổ sau 1.5 giây nếu không kích (theo RL)
+    time = 1.5f; // Đạn to tự động nổ sau 1.5 giây nếu không kích
   }
 
   maxTime = time;
