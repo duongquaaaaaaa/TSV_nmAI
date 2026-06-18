@@ -208,45 +208,59 @@ class Planner:
 
         return True
 
-    def _has_forced_neighbor(self, row: int, col: int, dr: int, dc: int) -> bool:
-        if dr != 0 and dc != 0:
-            if self.is_walkable((row - dr, col + dc)) and not self.is_walkable((row - dr, col)):
-                return True
-            if self.is_walkable((row + dr, col - dc)) and not self.is_walkable((row, col - dc)):
-                return True
-        elif dr == 0:
-            if self.is_walkable((row + 1, col + dc)) and not self.is_walkable((row + 1, col)):
-                return True
-            if self.is_walkable((row - 1, col + dc)) and not self.is_walkable((row - 1, col)):
-                return True
-        else:
-            if self.is_walkable((row + dr, col + 1)) and not self.is_walkable((row, col + 1)):
-                return True
-            if self.is_walkable((row + dr, col - 1)) and not self.is_walkable((row, col - 1)):
+    def _step_cost(self, a: GridPos, b: GridPos) -> float:
+        dr = abs(a[0] - b[0])
+        dc = abs(a[1] - b[1])
+        if dr + dc == 2:
+            return 1.4142135623731
+        return 1.0
+
+    def _get_neighbors_set(self, node: GridPos) -> set:
+        return {n for n, _ in self.neighbors(node)}
+
+    def _is_forced_neighbor(self, parent: GridPos, current: GridPos, n: GridPos) -> bool:
+        cost_through = self._step_cost(parent, current) + self._step_cost(current, n)
+        parent_neighbors = self._get_neighbors_set(parent)
+        if n in parent_neighbors:
+            if self._step_cost(parent, n) <= cost_through:
+                return False
+        n_neighbors = self._get_neighbors_set(n)
+        common = parent_neighbors.intersection(n_neighbors)
+        for inter in common:
+            if inter == current:
+                continue
+            if self._step_cost(parent, inter) + self._step_cost(inter, n) <= cost_through:
+                return False
+        return True
+
+    def _has_forced_neighbor(self, row: int, col: int, dr: int, dc: int, parent: GridPos) -> bool:
+        current = (row, col)
+        current_neighbors = self._get_neighbors_set(current)
+        for n in current_neighbors:
+            if n == parent:
+                continue
+            if self._is_forced_neighbor(parent, current, n):
                 return True
         return False
 
     def _jump(self, row: int, col: int, dr: int, dc: int, goal: GridPos) -> Optional[GridPos]:
-
-        if not self._can_move(row, col, dr, dc):
-            return None
-
-        nr = row + dr
-        nc = col + dc
-
-        if (nr, nc) == goal:
-            return (nr, nc)
-
-        if self._has_forced_neighbor(nr, nc, dr, dc):
-            return (nr, nc)
-
-        if dr != 0 and dc != 0:
-            if self._jump(nr, nc, dr, 0, goal) is not None:
+        parent = (row, col)
+        while True:
+            if not self._can_move(row, col, dr, dc):
+                return None
+            nr = row + dr
+            nc = col + dc
+            if (nr, nc) == goal:
                 return (nr, nc)
-            if self._jump(nr, nc, 0, dc, goal) is not None:
+            if self._has_forced_neighbor(nr, nc, dr, dc, parent):
                 return (nr, nc)
-
-        return self._jump(nr, nc, dr, dc, goal)
+            if dr != 0 and dc != 0:
+                if self._jump(nr, nc, dr, 0, goal) is not None:
+                    return (nr, nc)
+                if self._jump(nr, nc, 0, dc, goal) is not None:
+                    return (nr, nc)
+            row, col = nr, nc
+            parent = (row, col)
 
     def _prune_directions(self, current: GridPos, parent: Optional[GridPos]) -> List[Tuple[int, int]]:
         if parent is None:
@@ -258,37 +272,25 @@ class Planner:
                     if self._can_move(current[0], current[1], dr, dc):
                         dirs.append((dr, dc))
             return dirs
-
         dr = (current[0] > parent[0]) - (current[0] < parent[0])
         dc = (current[1] > parent[1]) - (current[1] < parent[1])
         dirs = []
-
+        if self._can_move(current[0], current[1], dr, dc):
+            dirs.append((dr, dc))
         if dr != 0 and dc != 0:
-            if self._can_move(current[0], current[1], dr, dc):
-                dirs.append((dr, dc))
             if self._can_move(current[0], current[1], dr, 0):
                 dirs.append((dr, 0))
             if self._can_move(current[0], current[1], 0, dc):
                 dirs.append((0, dc))
-            if not self.is_walkable((current[0] - dr, current[1])) and self.is_walkable((current[0] - dr, current[1] + dc)):
-                dirs.append((-dr, dc))
-            if not self.is_walkable((current[0], current[1] - dc)) and self.is_walkable((current[0] + dr, current[1] - dc)):
-                dirs.append((dr, -dc))
-        elif dr == 0 and dc != 0:
-            if self._can_move(current[0], current[1], 0, dc):
-                dirs.append((0, dc))
-            if not self.is_walkable((current[0] + 1, current[1])) and self.is_walkable((current[0] + 1, current[1] + dc)):
-                dirs.append((1, dc))
-            if not self.is_walkable((current[0] - 1, current[1])) and self.is_walkable((current[0] - 1, current[1] + dc)):
-                dirs.append((-1, dc))
-        elif dr != 0 and dc == 0:
-            if self._can_move(current[0], current[1], dr, 0):
-                dirs.append((dr, 0))
-            if not self.is_walkable((current[0], current[1] + 1)) and self.is_walkable((current[0] + dr, current[1] + 1)):
-                dirs.append((dr, 1))
-            if not self.is_walkable((current[0], current[1] - 1)) and self.is_walkable((current[0] + dr, current[1] - 1)):
-                dirs.append((dr, -1))
-
+        current_neighbors = self._get_neighbors_set(current)
+        for n in current_neighbors:
+            if n == parent:
+                continue
+            if self._is_forced_neighbor(parent, current, n):
+                ndr = (n[0] > current[0]) - (n[0] < current[0])
+                ndc = (n[1] > current[1]) - (n[1] < current[1])
+                if (ndr, ndc) not in dirs:
+                    dirs.append((ndr, ndc))
         return dirs
 
     def plan_astar(self, start: GridPos, goal: GridPos, heuristic: str = "manhattan") -> PathResult:
@@ -446,13 +448,13 @@ class Planner:
         if goal not in came_from:
             return PathResult(path=[], reached_goal=False)
 
-        path = []
+        sparse = []
         curr = goal
         while curr is not None:
-            path.append(curr)
+            sparse.append(curr)
             curr = came_from[curr]
-        path.reverse()
-        return PathResult(path=path, reached_goal=True)
+        sparse.reverse()
+        return PathResult(path=interpolate_sparse_path(sparse), reached_goal=True)
 
     def plan_theta_star(self, start: GridPos, goal: GridPos) -> PathResult:
         if not self.is_walkable(start) or not self.is_walkable(goal):
@@ -648,3 +650,35 @@ class Planner:
         if algo == "dstar_lite":
             return self.plan_dstar_lite(start, goal)
         raise ValueError(f"Unsupported algorithm: {self.algorithm}")
+
+
+def bresenham_line(a: GridPos, b: GridPos) -> List[GridPos]:
+    r0, c0 = a
+    r1, c1 = b
+    cells = [a]
+    dr = abs(r1 - r0)
+    dc = abs(c1 - c0)
+    sr = 1 if r1 > r0 else -1 if r1 < r0 else 0
+    sc = 1 if c1 > c0 else -1 if c1 < c0 else 0
+    err = dr - dc
+    r, c = r0, c0
+    while (r, c) != (r1, c1):
+        e2 = 2 * err
+        if e2 > -dc:
+            err -= dc
+            r += sr
+        if e2 < dr:
+            err += dr
+            c += sc
+        cells.append((r, c))
+    return cells
+
+
+def interpolate_sparse_path(sparse: List[GridPos]) -> List[GridPos]:
+    if len(sparse) <= 1:
+        return list(sparse)
+    full = [sparse[0]]
+    for i in range(1, len(sparse)):
+        segment = bresenham_line(full[-1], sparse[i])
+        full.extend(segment[1:])
+    return full

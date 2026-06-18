@@ -179,6 +179,8 @@ def main() -> None:
     saw_state = False
     last_no_path_frame = -9999
     last_score = -1
+    last_planned_enemy_grid = None
+    frames_since_replan = 999
 
     try:
         while True:
@@ -222,6 +224,8 @@ def main() -> None:
                 last_good_waypoints = []
                 waypoint_idx = 0
                 _HAS_FIRST_PATH = False
+                last_planned_enemy_grid = None
+                frames_since_replan = 999
                 if current_score > last_score:
                     last_score = current_score
                 continue
@@ -231,16 +235,32 @@ def main() -> None:
             if not saw_state:
                 saw_state = True
 
-            if planner is None or frame % 20 == 0 or waypoint_idx >= len(waypoints):
-                should_periodic_replan = _ENABLE_PERIODIC_REPLAN and (frame % 20 == 0)
-                if planner is None or should_periodic_replan or waypoint_idx >= len(waypoints):
+            frames_since_replan += 1
+
+            # If the algorithm is DFS, we apply the custom path commitment, dynamic waypoint advancement, and lookahead.
+            # For all other algorithms, we use the original, more stable waypoint-by-waypoint behavior.
+            if _PLANNER_ALGORITHM == "dfs":
+                enemy_grid = planner.world_to_grid(float(enemy["x"]), float(enemy["y"])) if planner else None
+                should_replan = False
+                if planner is None or not waypoints or waypoint_idx >= len(waypoints):
+                    should_replan = True
+                elif stuck_frames >= _STUCK_FRAMES:
+                    should_replan = True
+                elif enemy_grid != last_planned_enemy_grid:
+                    if frames_since_replan >= 15:
+                        should_replan = True
+
+                if should_replan:
                     planner = _build_planner(snapshot)
+                    enemy_grid = planner.world_to_grid(float(enemy["x"]), float(enemy["y"]))
                     plan_start = time.perf_counter()
                     planned_waypoints = _plan_waypoints(planner, me, enemy)
                     duration_ms = (time.perf_counter() - plan_start) * 1000.0
                     _record_plan_time(duration_ms)
+                    frames_since_replan = 0
+                    last_planned_enemy_grid = enemy_grid
                     if _LOG_FILE:
-                        display_h = _ASTAR_HEURISTIC if _PLANNER_ALGORITHM == "astar" else "uninformed"
+                        display_h = "uninformed"
                         try:
                             with open(_LOG_FILE, "a", newline="") as f:
                                 writer = csv.writer(f)
@@ -264,19 +284,81 @@ def main() -> None:
                         waypoints = last_good_waypoints
                         waypoint_idx = min(waypoint_idx, max(len(waypoints) - 1, 0))
 
-            if waypoint_idx < len(waypoints):
-                tx, ty = waypoints[waypoint_idx]
-                if (tx - float(me["x"])) ** 2 + (ty - float(me["y"])) ** 2 < 0.08:
-                    waypoint_idx += 1
+                # Scan ahead to see if the tank is near any future waypoints with clear line of sight.
+                # If so, skip directly to the furthest one to prevent wiggling/confusion on parallel/close paths.
+                me_grid = planner.world_to_grid(float(me["x"]), float(me["y"]))
+                max_skip_idx = waypoint_idx
+                for idx in range(waypoint_idx, min(waypoint_idx + 20, len(waypoints))):
+                    wx, wy = waypoints[idx]
+                    dist_sq = (wx - float(me["x"])) ** 2 + (wy - float(me["y"])) ** 2
+                    if dist_sq < 1.0: # distance < 1.0 unit
+                        wp_grid = planner.world_to_grid(wx, wy)
+                        if planner._line_of_sight(me_grid, wp_grid):
+                            max_skip_idx = idx
+                if max_skip_idx > waypoint_idx:
+                    waypoint_idx = max_skip_idx
 
-            if not waypoints:
-                env.set_flags(0)
-                env.flush_actions()
-                frame += 1
-                time.sleep(0.003)
-                continue
+                if waypoint_idx < len(waypoints):
+                    tx, ty = waypoints[waypoint_idx]
+                    if (tx - float(me["x"])) ** 2 + (ty - float(me["y"])) ** 2 < 0.08:
+                        waypoint_idx += 1
 
-            target = waypoints[min(waypoint_idx, len(waypoints) - 1)]
+                if not waypoints:
+                    env.set_flags(0)
+                    env.flush_actions()
+                    frame += 1
+                    time.sleep(0.003)
+                    continue
+
+                target = waypoints[min(waypoint_idx, len(waypoints) - 1)]
+            else:
+                # Original control code
+                if planner is None or frame % 20 == 0 or waypoint_idx >= len(waypoints):
+                    should_periodic_replan = _ENABLE_PERIODIC_REPLAN and (frame % 20 == 0)
+                    if planner is None or should_periodic_replan or waypoint_idx >= len(waypoints):
+                        planner = _build_planner(snapshot)
+                        plan_start = time.perf_counter()
+                        planned_waypoints = _plan_waypoints(planner, me, enemy)
+                        duration_ms = (time.perf_counter() - plan_start) * 1000.0
+                        _record_plan_time(duration_ms)
+                        if _LOG_FILE:
+                            display_h = _ASTAR_HEURISTIC if _PLANNER_ALGORITHM == "astar" else "uninformed"
+                            try:
+                                with open(_LOG_FILE, "a", newline="") as f:
+                                    writer = csv.writer(f)
+                                    writer.writerow([
+                                        snapshot.get("dt", 0),
+                                        _PLANNER_ALGORITHM,
+                                        display_h,
+                                        planned_waypoints is not None,
+                                        duration_ms,
+                                        len(planned_waypoints) if planned_waypoints else 0
+                                    ])
+                            except OSError:
+                                pass
+                        if planned_waypoints is not None:
+                            waypoints = planned_waypoints
+                            last_good_waypoints = planned_waypoints
+                            waypoint_idx = 0
+                            if not _HAS_FIRST_PATH:
+                                _HAS_FIRST_PATH = True
+                        elif not waypoints:
+                            waypoints = last_good_waypoints
+                            waypoint_idx = min(waypoint_idx, max(len(waypoints) - 1, 0))
+
+                if waypoint_idx < len(waypoints):
+                    tx, ty = waypoints[waypoint_idx]
+                    if (tx - float(me["x"])) ** 2 + (ty - float(me["y"])) ** 2 < 0.08:
+                        waypoint_idx += 1
+
+                if not waypoints:
+                    env.set_flags(0)
+                    env.flush_actions()
+                    frame += 1
+                    time.sleep(0.003)
+                    continue
+
+                target = waypoints[min(waypoint_idx, len(waypoints) - 1)]
             err = heading_error(float(me["x"]), float(me["y"]), float(me["angle"]), target[0], target[1])
             dist2 = (float(enemy["x"]) - float(me["x"])) ** 2 + (float(enemy["y"]) - float(me["y"])) ** 2
             err_to_shoot = heading_error(float(me["x"]), float(me["y"]), float(me["angle"]), float(enemy["x"]), float(enemy["y"]))
