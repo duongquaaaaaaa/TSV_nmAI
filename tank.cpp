@@ -44,6 +44,34 @@ Tank::Tank(b2World &world, int _playerIndex) {
   body->CreateFixture(&barrelFix);
 }
 
+/**
+ * @brief Cập nhật trạng thái xe tăng: khiên, di chuyển, bắn, va chạm.
+ * Nhận TankActions thay vì đọc phím — tương thích cả human play và RL.
+ */
+void Tank::Update(b2World &world, std::vector<Bullet *> &bullets,
+                  std::vector<Item *> &items, const TankActions &actions,
+                  float dt, bool shieldsEnabled) {
+  if (shieldCooldownTimer > 0.0f)
+    shieldCooldownTimer -= dt;
+  if (shieldTimer > 0.0f) {
+    shieldTimer -= dt;
+    if (shieldTimer <= 0.0f)
+      hasShield = false;
+  }
+  if (shootCooldownTimer > 0.0f)
+    shootCooldownTimer -= dt;
+
+  if (shieldsEnabled && actions.shield && shieldCooldownTimer <= 0.0f) {
+    hasShield = true;
+    shieldTimer = 5.0f;
+    shieldCooldownTimer = 15.0f;
+  }
+
+  HandleMovement(actions);
+  FireWeapon(world, bullets, actions);
+  CheckCollisions(bullets, items);
+}
+
 
 
 /**
