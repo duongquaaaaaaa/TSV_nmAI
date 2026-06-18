@@ -151,6 +151,8 @@ int main(int argc, char* argv[]) {
                     if (bots[i])      { delete bots[i];      bots[i]      = nullptr; }
                     if (aiBots[i])   { delete aiBots[i];   aiBots[i]   = nullptr; }
                     if (astarBots[i]){ delete astarBots[i]; astarBots[i] = nullptr; }
+                    game.botPaths[i].clear();
+                    game.botBounceRays[i].clear();
                 };
                 if (isBot[i] && !isAI[i] && !isAstar[i]) {
                     clearAll();

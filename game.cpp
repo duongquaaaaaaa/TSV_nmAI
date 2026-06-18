@@ -31,6 +31,10 @@ Game::~Game() {
 void Game::ResetMatch() {
     frameCount = 0;
     map.Clear(world);
+    for (int i = 0; i < 4; i++) {
+        botPaths[i].clear();
+        botBounceRays[i].clear();
+    }
     for (Tank* t : tanks) { world.DestroyBody(t->body); delete t; } tanks.clear();
     for (Bullet* b : bullets) { world.DestroyBody(b->body); delete b; } bullets.clear();
     for (Item* item : items) { world.DestroyBody(item->body); delete item; } items.clear();
