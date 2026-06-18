@@ -38,7 +38,8 @@ find_package(raylib CONFIG REQUIRED)
 add_executable(AZgame
     main.cpp game.cpp map.cpp renderer.cpp tank.cpp bullet.cpp ui.cpp portal.cpp item.cpp
     "reinforcement learning/bot.cpp"
-    "reinforcement learning/ai_bot.cpp")
+    "reinforcement learning/ai_bot.cpp"
+    Astar/astar_bot.cpp)
 
 add_executable(AZgameBridge
     Astar/bridge_main.cpp game.cpp map.cpp renderer.cpp tank.cpp bullet.cpp portal.cpp item.cpp
@@ -49,7 +50,7 @@ target_link_libraries(AZgame PRIVATE box2d raylib)
 target_link_libraries(AZgameBridge PRIVATE box2d raylib)
 
 # 5. Chỉ định thư mục chứa các file Header (.h)
-target_include_directories(AZgame PRIVATE include "reinforcement learning")
+target_include_directories(AZgame PRIVATE include "reinforcement learning" Astar)
 target_include_directories(AZgameBridge PRIVATE include "reinforcement learning")
 
 # ========================================================
