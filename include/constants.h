@@ -72,4 +72,5 @@ struct TankActions {
 struct DeathEvent {
     b2Vec2 position;
     int playerIndex;
+    int killerIndex; // Thêm killerIndex để phát hiện tự sát
 };
