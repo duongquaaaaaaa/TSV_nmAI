@@ -134,7 +134,7 @@ Trạng thái quan sát (Observation Space) cung cấp cho mô hình AI là mộ
 ---
 
 ### 2.5 Hệ thống phần thưởng (Reward System)
-Thiết kế hàm phần thưởng là yếu tố quan trọng nhất quyết định sự hội tụ của mô hình. Trong [rl_env_wrapper.cpp](file:///c:/Users/Admin/Downloads/AZgame-hung%20%281%29/AZgame-hung/rl_env_wrapper.cpp), hệ thống phần thưởng sử dụng kỹ thuật **Reward Shaping** để dẫn dắt hành vi của xe tăng. Tất cả các phần thưởng nhỏ dẫn dắt được nhân với hệ số điều hướng $SF$ (Shaping Factor) để giảm dần tầm ảnh hưởng ở các giai đoạn cuối, giúp mô hình tập trung hoàn toàn vào kết quả thắng/thua cuối cùng.
+Thiết kế hàm phần thưởng là yếu tố quan trọng nhất quyết định sự hội tụ của mô hình. Trong [rl_env_wrapper.cpp](file:///home/vansam/hust/TSV_nmAI/reinforcement%20learning/rl_env_wrapper.cpp), hệ thống phần thưởng sử dụng kỹ thuật **Reward Shaping** để dẫn dắt hành vi của xe tăng. Tất cả các phần thưởng nhỏ dẫn dắt được nhân với hệ số điều hướng $SF$ (Shaping Factor) để giảm dần tầm ảnh hưởng ở các giai đoạn cuối, giúp mô hình tập trung hoàn toàn vào kết quả thắng/thua cuối cùng.
 
 #### 2.5.1 Nhóm phần thưởng mục tiêu cốt lõi (Sparse Rewards)
 - **Tiêu diệt kẻ địch**: $+5.0$ (Tăng điểm số).
@@ -271,7 +271,7 @@ Trong đó:
 
 #### 4.2.3 Lộ trình huấn luyện lũy tiến (Curriculum Learning)
 Môi trường gồm mê cung phức tạp, đạn nảy tường và các cơ chế phụ trợ khiến cho việc huấn luyện từ đầu với một Bot mạnh là bất khả thi (Agent luôn bị tiêu diệt và không nhận được bất kỳ tín hiệu phần thưởng tích cực nào). 
-Do đó, dự án thiết lập một lộ trình huấn luyện lũy tiến gồm **11 giai đoạn** chi tiết trong [train_ai.py](file:///c:/Users/Admin/Downloads/AZgame-hung%20%281%29/AZgame-hung/train_AI/train_ai.py):
+Do đó, dự án thiết lập một lộ trình huấn luyện lũy tiến gồm **11 giai đoạn** chi tiết trong [train_ai.py](file:///home/vansam/hust/TSV_nmAI/reinforcement%20learning/train_ai.py):
 
 | Phase | Bản đồ (Map) | Vật phẩm (Items) | Cấp độ Bot đối thủ (Bot Level) | Số bước (Steps Target) | Hệ số dẫn dắt (Shaping Factor) | Tốc độ học (Learning Rate) | Hệ số khám phá (Entropy Coef) | Mục tiêu huấn luyện & Hành vi cần đạt |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---|
@@ -298,7 +298,7 @@ Từ giai đoạn 9 và 10, để ngăn chặn mô hình bị rơi vào tình tr
 ---
 
 ### 4.3 Cài đặt Bot luật (C++ Rule-Based Bot) đối thủ
-Để làm đối thủ huấn luyện cho AI qua 11 giai đoạn, một hệ thống Bot luật cực kỳ tinh vi đã được cài đặt trong tệp [bot.cpp](file:///c:/Users/Admin/Downloads/AZgame-hung%20%281%29/AZgame-hung/bot.cpp) bằng ngôn ngữ C++ nhằm tối ưu hóa hiệu năng tính toán.
+Để làm đối thủ huấn luyện cho AI qua 11 giai đoạn, một hệ thống Bot luật cực kỳ tinh vi đã được cài đặt trong tệp [bot.cpp](file:///home/vansam/hust/TSV_nmAI/bot.cpp) bằng ngôn ngữ C++ nhằm tối ưu hóa hiệu năng tính toán.
 
 #### 4.3.1 Kiến trúc đa luồng
 Mỗi Bot duy trì **2 luồng công việc phụ** chạy song song độc lập với luồng chính (Main Thread):

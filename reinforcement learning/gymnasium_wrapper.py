@@ -6,7 +6,7 @@ from gymnasium import spaces
 
 # -------------------------------------------------------
 # Thêm thư mục build vào đường dẫn để Python tìm thấy file .pyd
-# Lưu ý: file này trong /train_AI/ nên phải lùi ra 1 cấp ('..') để thấy /build/
+# Lưu ý: file này trong /reinforcement learning/ nên phải lùi ra 1 cấp ('..') để thấy /build/
 build_dir = os.path.join(os.path.dirname(__file__), '..', 'build')
 if os.path.exists(os.path.join(build_dir, 'Debug')):
     sys.path.append(os.path.join(build_dir, 'Debug'))
