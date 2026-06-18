@@ -1,6 +1,11 @@
 #include "astar_bot.h"
 #include <cmath>
 #include <algorithm>
+#include <fstream>
+#include <sstream>
+#include <cstdio>
+#include <raylib.h>
+#include <filesystem>
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Internal helpers
@@ -54,6 +59,166 @@ b2Vec2 Refl(b2Vec2 dir, b2Vec2 n) {
     b2Vec2 r(dir.x - d*n.x, dir.y - d*n.y);
     r.x *= len; r.y *= len;
     return r;
+}
+
+namespace fs = std::filesystem;
+
+static std::string GetRunPath(const std::string& filename) {
+    if (fs::exists("run")) {
+        return "run/" + filename;
+    } else if (fs::exists("../run")) {
+        return "../run/" + filename;
+    }
+    try {
+        fs::create_directories("run");
+        return "run/" + filename;
+    } catch (...) {
+        return "run/" + filename;
+    }
+}
+
+void WriteBridgeState(const Game& game, float dt, int myPlayerIndex) {
+    std::ostringstream ss;
+    ss << "{\n";
+    ss << "  \"screen_width\": " << SCREEN_WIDTH << ",\n";
+    ss << "  \"screen_height\": " << SCREEN_HEIGHT << ",\n";
+    ss << "  \"scale\": " << SCALE << ",\n";
+    ss << "  \"dt\": " << dt << ",\n";
+    ss << "  \"needs_restart\": " << (game.needsRestart ? "true" : "false") << ",\n";
+
+    ss << "  \"scores\": [";
+    for (int i = 0; i < 4; ++i) {
+        if (i) ss << ", ";
+        ss << game.playerScores[i];
+    }
+    ss << "],\n";
+
+    ss << "  \"tanks\": [";
+    bool first = true;
+    for (const Tank* t : game.tanks) {
+        if (t->playerIndex == myPlayerIndex) {
+            if (!first) ss << ",";
+            ss << "{"
+               << "\"player_index\":0,"
+               << "\"x\":" << t->body->GetPosition().x << ","
+               << "\"y\":" << t->body->GetPosition().y << ","
+               << "\"angle\":" << t->body->GetAngle() << ","
+               << "\"has_shield\":" << (t->hasShield ? "true" : "false")
+               << "}";
+            first = false;
+        }
+    }
+    for (const Tank* t : game.tanks) {
+        if (t->playerIndex != myPlayerIndex) {
+            if (!first) ss << ",";
+            ss << "{"
+               << "\"player_index\":1,"
+               << "\"x\":" << t->body->GetPosition().x << ","
+               << "\"y\":" << t->body->GetPosition().y << ","
+               << "\"angle\":" << t->body->GetAngle() << ","
+               << "\"has_shield\":" << (t->hasShield ? "true" : "false")
+               << "}";
+            first = false;
+            break;
+        }
+    }
+    ss << "],\n";
+
+    ss << "  \"bullets\": [";
+    for (size_t i = 0; i < game.bullets.size(); ++i) {
+        if (i) ss << ",";
+        const Bullet* b = game.bullets[i];
+        int ownerMap = (b->ownerPlayerIndex == myPlayerIndex) ? 0 : 1;
+        ss << "{"
+           << "\"x\":" << b->body->GetPosition().x << ","
+           << "\"y\":" << b->body->GetPosition().y << ","
+           << "\"owner\":" << ownerMap
+           << "}";
+    }
+    ss << "],\n";
+
+    bool firstWall = true;
+    ss << "  \"walls\": [";
+    for (const auto* body : game.map.GetWalls()) {
+        for (const auto* fixture = body->GetFixtureList(); fixture;
+             fixture = fixture->GetNext()) {
+            if (!firstWall) ss << ",";
+            const auto aabb = fixture->GetAABB(0);
+            ss << "{"
+               << "\"min_x\":" << aabb.lowerBound.x << ","
+               << "\"min_y\":" << aabb.lowerBound.y << ","
+               << "\"max_x\":" << aabb.upperBound.x << ","
+               << "\"max_y\":" << aabb.upperBound.y
+               << "}";
+            firstWall = false;
+        }
+    }
+    ss << "]\n";
+
+    ss << "}\n";
+
+    std::string tmpPath = GetRunPath("bridge_state.tmp");
+    std::string statePath = GetRunPath("bridge_state.json");
+
+    std::ofstream out(tmpPath, std::ios::trunc);
+    out << ss.str();
+    out.close();
+    std::remove(statePath.c_str());
+    std::rename(tmpPath.c_str(), statePath.c_str());
+}
+
+TankActions ReadBridgeAction() {
+    TankActions act;
+    std::string controlPath = GetRunPath("bridge_control.txt");
+    std::ifstream in(controlPath);
+    if (!in) {
+        return act;
+    }
+
+    int p = 0;
+    int fw = 0, bw = 0, tl = 0, tr = 0, sh = 0, shield = 0;
+    while (in >> p >> fw >> bw >> tl >> tr >> sh >> shield) {
+        if (p == 0) {
+            act.forward = fw != 0;
+            act.backward = bw != 0;
+            act.turnLeft = tl != 0;
+            act.turnRight = tr != 0;
+            act.shoot = sh != 0;
+            act.shield = shield != 0;
+            break;
+        }
+    }
+
+    return act;
+}
+
+std::vector<b2Vec2> ReadBridgeWaypoints() {
+    std::vector<b2Vec2> wps;
+    std::string waypointsPath = GetRunPath("bridge_waypoints.txt");
+    std::ifstream in(waypointsPath);
+    if (!in) {
+        return wps;
+    }
+
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty()) continue;
+
+        std::istringstream ls(line);
+        std::string tag;
+        ls >> tag;
+        if (tag == "idx" || tag == "maze" || tag == "pf_total_ms" || tag == "pf_avg_ms" || tag == "runtime_s") {
+            continue;
+        }
+
+        float x = 0.0f;
+        float y = 0.0f;
+        std::istringstream ps(line);
+        if (ps >> x >> y) {
+            wps.push_back({x, y});
+        }
+    }
+    return wps;
 }
 
 } // namespace
@@ -132,6 +297,28 @@ TankActions AStarBot::GetAction(Game* game) {
     TankActions act;
     if (!game) return act;
 
+    // IF playerIndex is 0 or 1 (the tanks that can be controlled/bridged to python bot)
+    if (playerIndex == 0 || playerIndex == 1) {
+        if (requestPathClear) {
+            std::ofstream(GetRunPath("bridge_control.txt"), std::ios::trunc).close();
+            std::ofstream(GetRunPath("bridge_waypoints.txt"), std::ios::trunc).close();
+            requestPathClear = false;
+        }
+
+        // Write the current game state for python to read (always mapping this bot to 0, and opponent to 1)
+        WriteBridgeState(*game, GetFrameTime(), playerIndex);
+
+        // Read the actions calculated by your python script (which expects player 0)
+        act = ReadBridgeAction();
+
+        // Read the waypoints to draw them on the map
+        cachedPath = ReadBridgeWaypoints();
+        game->botPaths[playerIndex] = cachedPath;
+
+        return act;
+    }
+
+    // ELSE: fallback to C++ A* logic for other player indexes
     // Tìm xe mình và xe địch
     Tank* me    = nullptr;
     Tank* enemy = nullptr;
