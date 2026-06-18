@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.15)
 project(AZgame)
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
+
 set(PYBIND11_FINDPYTHON ON)
 
 include(FetchContent)
@@ -22,8 +24,14 @@ set(BOX2D_BUILD_TESTBED OFF CACHE BOOL "" FORCE)
 set(BOX2D_BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
 set(BOX2D_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 
-# 2. Báo cho CMake biết phải build luôn cả mã nguồn trong thư mục box2d
-add_subdirectory(box2d)
+# 2. Tải và build Box2D bằng FetchContent tự động
+FetchContent_Declare(
+  box2d
+  GIT_REPOSITORY https://github.com/erincatto/box2d.git
+  GIT_TAG        v2.4.1
+)
+FetchContent_MakeAvailable(box2d)
+
 
 find_package(raylib CONFIG REQUIRED)
 
