@@ -67,12 +67,12 @@ inline PhaseConfig GetPhaseConfig(Phase phase) {
         1200,                  // 20 giây/ván (1200 steps * 1/60)
         5,                     // 5 seeds — map SPARSE ít variance
         300,                   // 500→300 gen: bias mutation giúp hội tụ nhanh hơn
-        250.0f,                // ~50% winrate. Thấp để agent pass Phase 1 sớm
-                               // và bắt đầu học kỹ năng phức tạp hơn.
+        350.0f,                // ~60% winrate. Tăng từ 250: STATIONARY enemy
+                               // đứng yên, agent PHẢI thắng đa số mới đủ tốt.
         false, false, false,   // Tắt items/portals/shields
         2.5f,                  // Đạn tồn tại 2.5s
         3,                     // Max 3 viên đạn
-        5,                     // Streak 5 gen (10→5: Phase 1 nên pass nhanh)
+        8,                     // Streak 8 gen (5→8: cần ổn định hơn trước khi pass)
         0.0f,                  // Không trộn đối thủ
         "Phase1_Basic"
     };
@@ -87,12 +87,12 @@ inline PhaseConfig GetPhaseConfig(Phase phase) {
         1500,                  // 25 giây/ván
         8,                     // 8 seeds — NORMAL map variance cao hơn
         400,                   // Nhiều gen hơn vì nhảy 2 bậc độ khó
-        250.0f,                // ~50% winrate trên 8 seeds. Wanderer không bắn
-                               // nên agent chỉ cần tìm đường + aim → 250 hợp lý.
+        300.0f,                // ~55% winrate trên 8 seeds. Tăng từ 250:
+                               // V1 không bắn, agent phải thắng >50% ổn định.
         false, false, false,
         2.5f,
         3,
-        7,                     // Streak 7 gen
+        10,                    // Streak 10 gen (7→10: navigation cần ổn định)
         0.20f,                 // 20% trộn STATIONARY để ôn Phase 1
         "Phase2_Wanderer"
     };
@@ -113,7 +113,7 @@ inline PhaseConfig GetPhaseConfig(Phase phase) {
         false, false, false,
         3.5f,                  // Đạn sống lâu hơn → đạn bounce nguy hiểm hơn
         3,
-        7,                     // Streak 7
+        10,                    // Streak 10 (7→10: combat cần ổn định)
         0.25f,                 // 25% trộn V1 để ôn navigation
         "Phase3_Fighter"
     };

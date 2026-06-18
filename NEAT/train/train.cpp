@@ -221,7 +221,7 @@ static bool RunPhase(Population &pop, const PhaseConfig &cfg,
   }
   if (logFile) {
     if (!appendLog || !fileExists) {
-      fprintf(logFile, "gen,best,avg,species\n");
+      fprintf(logFile, "gen,best,avg,topKavg,species\n");
     }
   }
 
@@ -229,12 +229,18 @@ static bool RunPhase(Population &pop, const PhaseConfig &cfg,
   bool promoted = false;
   const Genome *currentEnemyGen = frozenEnemy;
   Genome selfPlayOpponentCopy;
+  std::vector<int> lockedSeeds; // [FIX #2] Lock seeds khi đang đếm streak
 
   for (int gen = 0; gen < cfg.maxGenerations; gen++) {
     std::vector<int> seeds;
-    seeds.reserve(cfg.kSeeds);
-    for (int k = 0; k < cfg.kSeeds; k++)
-      seeds.push_back(AZ::Rand()); // DÙNG RANDOM THỰC SỰ TRÁNH TƯƠNG QUAN MÔI TRƯỜNG
+    if (!lockedSeeds.empty()) {
+      // [FIX #2] Dùng seeds đã lock để đảm bảo streak không phải do may mắn
+      seeds = lockedSeeds;
+    } else {
+      seeds.reserve(cfg.kSeeds);
+      for (int k = 0; k < cfg.kSeeds; k++)
+        seeds.push_back(AZ::Rand()); // DÙNG RANDOM THỰC SỰ TRÁNH TƯƠNG QUAN MÔI TRƯỜNG
+    }
 
     pop.EvaluateAll([&](Genome &g) -> float {
       return EvaluateGenome(g, cfg, seeds, currentEnemyGen);
@@ -252,6 +258,17 @@ static bool RunPhase(Population &pop, const PhaseConfig &cfg,
     }
     avg /= (float)pop.genomes.size();
 
+    // [FIX #1] Tính top-10% average thay vì dùng single best
+    int topK = std::max(1, (int)(pop.genomes.size() * 0.10f));
+    std::vector<float> fitnesses;
+    fitnesses.reserve(pop.genomes.size());
+    for (auto &g : pop.genomes) fitnesses.push_back(g.fitness);
+    std::partial_sort(fitnesses.begin(), fitnesses.begin() + topK,
+                      fitnesses.end(), std::greater<float>());
+    float topKAvg = 0.0f;
+    for (int i = 0; i < topK; i++) topKAvg += fitnesses[i];
+    topKAvg /= topK;
+
     // Cập nhật đối thủ Self-play định kỳ mỗi 5 thế hệ (tránh Forgetting problem)
     if (cfg.enemyType == EnemyType::SELF_PLAY && (gen + 1) % 5 == 0) {
       selfPlayOpponentCopy = pop.genomes[bestIdx];
@@ -261,9 +278,10 @@ static bool RunPhase(Population &pop, const PhaseConfig &cfg,
 
     pop.Evolve();
     pop.PrintStats();
+    printf("      Top10%%Avg: %.1f\n", topKAvg);
 
     if (logFile) {
-      fprintf(logFile, "%d,%.4f,%.4f,%d\n", gen + 1, best, avg,
+      fprintf(logFile, "%d,%.4f,%.4f,%.4f,%d\n", gen + 1, best, avg, topKAvg,
               (int)pop.species.size());
       fflush(logFile);
     }
@@ -273,27 +291,62 @@ static bool RunPhase(Population &pop, const PhaseConfig &cfg,
       if (pop.SaveBest(ckpt))
         printf("      [Checkpoint: %s]\n", ckpt.c_str());
     }
-    if (cfg.promotionThreshold > 0.0f && best >= cfg.promotionThreshold) {
-      // Ép train ít nhất 5% số Generation tối đa để đảm bảo sự ổn định
-      int minGen = std::max(10, (int)(cfg.maxGenerations * 0.05f));
+
+    // [FIX #1+#3+#4] Promotion check: dùng topKAvg thay vì best,
+    // minGen 15% thay vì 5%
+    if (cfg.promotionThreshold > 0.0f && topKAvg >= cfg.promotionThreshold) {
+      // [FIX #4] Ép train ít nhất 15% số Generation tối đa
+      int minGen = std::max(20, (int)(cfg.maxGenerations * 0.15f));
       if (gen >= minGen) {
+        if (streak == 0) {
+          // [FIX #2] Lock seeds khi bắt đầu streak
+          lockedSeeds = seeds;
+          printf("  -> [Streak START] Seeds locked for consistency check\n");
+        }
         streak++;
-        printf("  -> [Streak: %d/%d] Best fitness %.1f >= threshold!\n", streak,
-               cfg.streakRequired, best);
+        printf("  -> [Streak: %d/%d] Top10%%Avg %.1f >= threshold %.1f\n",
+               streak, cfg.streakRequired, topKAvg, cfg.promotionThreshold);
+
         if (streak >= cfg.streakRequired) {
-          printf("\n  ✅ Promotion threshold %.1f maintained for %d gens! Next "
-                 "phase.\n",
-                 cfg.promotionThreshold, cfg.streakRequired);
-          promoted = true;
-          break;
+          // [FIX #5] Validation gate: kiểm tra trên fresh seeds trước khi promote
+          printf("\n  🔍 Validation gate: testing best genome on %d fresh seeds...\n",
+                 cfg.kSeeds * 2);
+          std::vector<int> valSeeds;
+          valSeeds.reserve(cfg.kSeeds * 2);
+          for (int k = 0; k < cfg.kSeeds * 2; k++)
+            valSeeds.push_back(AZ::Rand());
+
+          float valFitness = EvaluateGenome(
+              pop.genomes[bestIdx], cfg, valSeeds, currentEnemyGen);
+          float valThreshold = cfg.promotionThreshold * 0.85f;
+
+          if (valFitness >= valThreshold) {
+            printf("\n  ✅ VALIDATED! Val fitness %.1f >= %.1f. Promotion "
+                   "confirmed!\n",
+                   valFitness, valThreshold);
+            printf("  ✅ Promotion threshold %.1f maintained for %d gens! Next "
+                   "phase.\n",
+                   cfg.promotionThreshold, cfg.streakRequired);
+            promoted = true;
+            break;
+          } else {
+            printf("  ⚠️  Validation FAILED! Val fitness %.1f < %.1f. "
+                   "Streak reset.\n",
+                   valFitness, valThreshold);
+            streak = 0;
+            lockedSeeds.clear();
+          }
         }
       } else {
-        printf("  -> Best: %.1f >= threshold. Tiếp tục ép train (Gen: %d/%d)\n",
-               best, gen, minGen);
+        printf("  -> Top10%%Avg: %.1f >= threshold. Tiếp tục ép train (Gen: %d/%d)\n",
+               topKAvg, gen, minGen);
       }
     } else {
-      if (streak > 0)
-        printf("  -> Streak broken!\n");
+      if (streak > 0) {
+        printf("  -> Streak broken! (Top10%%Avg %.1f < threshold %.1f)\n",
+               topKAvg, cfg.promotionThreshold);
+        lockedSeeds.clear(); // [FIX #2] Mở khóa seeds khi streak break
+      }
       streak = 0;
     }
   }
