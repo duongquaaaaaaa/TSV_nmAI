@@ -117,20 +117,23 @@ static float RunEpisode(Network &agentNet, const PhaseConfig &cfg, int seed,
       actions[1] = {};
       break;
     case EnemyType::RANDOM: {
+      // CHÚ Ý: main.cpp (watch mode) dùng rand() cho RANDOM enemy.
+      // Train.cpp dùng AZ::Rand() (thread_local, seeded) để đảm bảo
+      // determinism trong từng episode. Đây là intentional.
       TankActions ra;
-      ra.forward = (AZ::Rand() % 3 == 0);
-      ra.turnLeft = (AZ::Rand() % 4 == 0);
+      ra.forward   = (AZ::Rand() % 3 == 0);
+      ra.turnLeft  = (AZ::Rand() % 4 == 0);
       ra.turnRight = (AZ::Rand() % 4 == 0);
-      // [VÁ LỖI TỰ SÁT]: Random bot xả đạn quá nhiều (cứ 8 frame 1 viên)
-      // Giảm tần suất xuống cỡ 1 viên / 1.5 giây để tránh nó tự chết quá nhanh
-      ra.shoot = (AZ::Rand() % 90 == 0);
-      // (Tính năng khiên đã bị tắt trong huấn luyện)
+      // Tần suất bắn: ~1 viên / 1.5 giây @ 60fps
+      ra.shoot  = (AZ::Rand() % 90 == 0);
       ra.shield = false;
       actions[1] = ra;
       break;
     }
     case EnemyType::RULE_V1:
       actions[1] = GetRuleEnemyAction(game, 1, RuleVariant::V1);
+      // CHÚ Ý: main.cpp (watch mode) dòng 214 có thêm 50% suppress shoot cho V1/V2.
+      // Train.cpp KHÔNG làm vậy — training cần độ khó chính xác của enemy.
       break;
     case EnemyType::RULE_V2:
       actions[1] = GetRuleEnemyAction(game, 1, RuleVariant::V2);
@@ -302,6 +305,7 @@ static bool RunPhase(Population &pop, const PhaseConfig &cfg,
 
 // ─────────────────────────────────────────────────────────────────────────────
 int main(int argc, char *argv[]) {
+  AZ::g_UseThreadLocalRNG = true; // Bật cờ này để dùng RNG thread_safe đa luồng cho NEAT
   srand((unsigned int)time(NULL));
   namespace fs = std::filesystem;
   if (!fs::exists("agents"))

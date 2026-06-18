@@ -200,5 +200,5 @@ inline void GetObservation(const Game &game, int agentIdx, b2Vec2 astarWaypoint,
   obs[34] = std::clamp((-aVel.x * aSin + aVel.y * aCos) / maxSpeed, -1.0f, 1.0f);
 
   // ── [35] Shoot Cooldown ──
-  obs[35] = std::clamp(1.0f - (agent->shootCooldownTimer / 0.5f), 0.0f, 1.0f);
+  obs[35] = std::clamp(1.0f - (agent->shootCooldownTimer / 0.15f), 0.0f, 1.0f);
 }

@@ -25,7 +25,7 @@ Tank::Tank(b2World &world, int _playerIndex) {
   body = world.CreateBody(&tankDef);
 
   b2PolygonShape hullShape;
-  hullShape.SetAsBox(14.0f / SCALE, 14.0f / SCALE, b2Vec2(0.0f, -7.0f / SCALE),
+  hullShape.SetAsBox(10.5f / SCALE, 10.5f / SCALE, b2Vec2(0.0f, -5.25f / SCALE),
                      0.0f);
   b2FixtureDef hullFix;
   hullFix.shape = &hullShape;
@@ -35,7 +35,7 @@ Tank::Tank(b2World &world, int _playerIndex) {
   body->CreateFixture(&hullFix);
 
   b2PolygonShape barrelShape;
-  barrelShape.SetAsBox(3.0f / SCALE, 7.0f / SCALE, b2Vec2(0.0f, 14.0f / SCALE),
+  barrelShape.SetAsBox(2.25f / SCALE, 5.25f / SCALE, b2Vec2(0.0f, 10.5f / SCALE),
                        0.0f);
   b2FixtureDef barrelFix;
   barrelFix.shape = &barrelShape;
@@ -151,7 +151,7 @@ void Tank::FireWeapon(b2World &world, std::vector<Bullet *> &bullets,
     float currentAngle = body->GetAngle();
     b2Vec2 forwardDir(-sinf(currentAngle), cosf(currentAngle));
     b2Vec2 startPos = body->GetPosition();
-    b2Vec2 spawnPos = startPos + (30.0f / SCALE) * forwardDir;
+    b2Vec2 spawnPos = startPos + (22.5f / SCALE) * forwardDir;
 
     // Kỹ thuật Box2D RayCast: Tránh lỗi bắn đạn xuyên tường
     // Bắn 1 tia (Ray) từ tâm xe tăng ra ngoài mũi xe. Nếu khoảng cách đó
@@ -188,7 +188,7 @@ void Tank::FireWeapon(b2World &world, std::vector<Bullet *> &bullets,
                        forwardDir.x * sinA + forwardDir.y * cosA);
             Bullet *b = new Bullet(world, spawnPos, 10.0f * dir, false, false,
                                    false, playerIndex);
-            b->time = 3.0f;
+            b->time = 1.0f; // Tồn tại 1.0s (theo RL)
             bullets.push_back(b);
           }
           shootCooldownTimer = 0.5f;
@@ -218,7 +218,7 @@ void Tank::FireWeapon(b2World &world, std::vector<Bullet *> &bullets,
                                           false, false, false, playerIndex);
             b->time = bulletLifespan; // Gán cấu hình từ Curriculum
             bullets.push_back(b);
-            shootCooldownTimer = 0.3f; 
+            shootCooldownTimer = 0.15f; 
           }
           break;
         }
@@ -252,8 +252,12 @@ void Tank::CheckCollisions(std::vector<Bullet *> &bullets,
             hasShield = false;
             shieldTimer = 0.0f;
           } else {
-            isDestroyed = true;
+            hp -= 1;
             lastHitByPlayerIndex = bullet->ownerPlayerIndex;
+            lastHitBy = bullet->ownerPlayerIndex; // Cho RL
+            if (hp <= 0) {
+              isDestroyed = true;
+            }
           }
         }
       }

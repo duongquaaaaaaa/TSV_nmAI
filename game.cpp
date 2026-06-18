@@ -1,10 +1,12 @@
 #include "game.h"
 #include "AZRandom.h"
 
+bool AZ::g_UseThreadLocalRNG = false;
+
 /**
  * @brief Khởi tạo Game engine. Không đặt phím mặc định (do main.cpp/RL quyết định).
  */
-Game::Game() : world(b2Vec2(0.0f, 0.0f)), numPlayers(2), needsRestart(true), portalsEnabled(true), itemsEnabled(true), shieldsEnabled(true) {
+Game::Game() : world(b2Vec2(0.0f, 0.0f)), numPlayers(2), needsRestart(true), portalsEnabled(true), itemsEnabled(true), shieldsEnabled(true), mapEnabled(true) {
     itemSpawnTimer = 5.0f;
     for(int i = 0; i < 4; i++) {
         playerScores[i] = 0;
@@ -33,7 +35,7 @@ void Game::ResetMatch() {
     for (Bullet* b : bullets) { world.DestroyBody(b->body); delete b; } bullets.clear();
     for (Item* item : items) { world.DestroyBody(item->body); delete item; } items.clear();
     itemSpawnTimer = 3.0f;
-    map.Build(world, mapMode);
+    map.Build(world, mapEnabled ? mapMode : MapMode::OPEN);
 
     // Spawn xe tăng tại các ô đủ xa nhau
     std::vector<b2Vec2> spawnCells;
@@ -93,7 +95,7 @@ void Game::Update(const std::vector<TankActions>& actions, float dt) {
         if (t->playerIndex < (int)actions.size()) act = actions[t->playerIndex];
         t->Update(world, bullets, items, act, dt, shieldsEnabled, this->bulletLifespan, this->maxBullets);
         if (t->isDestroyed) {
-            recentDeaths.push_back({t->body->GetPosition(), t->playerIndex});
+            recentDeaths.push_back({t->body->GetPosition(), t->playerIndex, t->lastHitByPlayerIndex});
             // Update playerKills if this tank was killed by someone else
             if (t->lastHitByPlayerIndex >= 0 && t->lastHitByPlayerIndex < 4 && t->lastHitByPlayerIndex != t->playerIndex) {
                 playerKills[t->lastHitByPlayerIndex]++;

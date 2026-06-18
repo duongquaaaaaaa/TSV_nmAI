@@ -14,7 +14,9 @@ public:
     int playerIndex;            ///< Số thứ tự người chơi (0-3)
     float shootCooldownTimer;   ///< Đếm lùi giữa các lần bắn
     bool isDestroyed;           ///< Cờ xe tăng đã chết
-    int lastHitByPlayerIndex;   ///< [MỚI] Ai bắn viên đạn cuối cùng
+    int hp = 1;                 ///< Máu của xe tăng (RL dùng hp=1)
+    int lastHitByPlayerIndex;   ///< Ai bắn viên đạn cuối cùng (NEAT)
+    int lastHitBy = -1;         ///< Ai bắn viên đạn cuối cùng (RL)
 
     ItemType currentWeapon;     ///< Vũ khí đặc biệt đang trang bị
     int ammo;                   ///< Đạn còn lại của vũ khí đặc biệt
@@ -24,10 +26,10 @@ public:
     float shieldCooldownTimer;  ///< Thời gian chờ kích hoạt lại khiên
 
     Tank(b2World& world, int _playerIndex);
-    void Update(b2World& world, std::vector<Bullet*>& bullets, std::vector<Item*>& items, const TankActions& actions, float dt, bool shieldsEnabled, float bulletLifespan, int maxBullets);
+    void Update(b2World& world, std::vector<Bullet*>& bullets, std::vector<Item*>& items, const TankActions& actions, float dt, bool shieldsEnabled = true, float bulletLifespan = 7.0f, int maxBullets = 3);
 
 private:
     void HandleMovement(const TankActions& actions);
-    void FireWeapon(b2World& world, std::vector<Bullet*>& bullets, const TankActions& actions, float bulletLifespan, int maxBullets);
+    void FireWeapon(b2World& world, std::vector<Bullet*>& bullets, const TankActions& actions, float bulletLifespan = 7.0f, int maxBullets = 3);
     void CheckCollisions(std::vector<Bullet*>& bullets, std::vector<Item*>& items);
 };

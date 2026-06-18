@@ -31,13 +31,13 @@ Bullet::Bullet(b2World &world, b2Vec2 position, b2Vec2 velocity, bool _isLaser,
   if (isLaser) {
     velocity.x *= 8.0f; // Laser đi cực nhanh
     velocity.y *= 8.0f;
-    time = 1.5f; // laser tồn tại ngắn
+    time = 0.5f; // laser tồn tại ngắn (theo RL)
   } else if (isMissile) {
     velocity.x *= 1.5f;
     velocity.y *= 1.5f;
-    time = 7.0f; // Rút ngắn thời gian tồn tại tên lửa
+    time = 5.0f; // Rút ngắn thời gian tồn tại tên lửa (theo RL)
   } else if (isFrag) {
-    time = 2.0f; // Đạn to tự động nổ sau 1.5 giây nếu không kích
+    time = 1.5f; // Đạn to tự động nổ sau 1.5 giây nếu không kích (theo RL)
   }
 
   maxTime = time;
@@ -54,7 +54,7 @@ void Bullet::Update(float dt, const std::vector<Tank *> &tanks) {
 
   // Logic xử lý đạn đuổi tìm mục tiêu (Tên lửa)
   if (isMissile) {
-    float elapsed = 5.0f - time;
+    float elapsed = maxTime - time;
     b2Vec2 currentVel = body->GetLinearVelocity();
     float currentSpeed = currentVel.Length();
 

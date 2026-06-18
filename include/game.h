@@ -36,8 +36,9 @@ public:
   bool portalsEnabled;  ///< Bật/tắt cổng dịch chuyển
   bool itemsEnabled;    ///< Bật/tắt vật phẩm
   bool shieldsEnabled;  ///< Bật/tắt khiên
+  bool mapEnabled = true; ///< Bật/tắt map (Dành cho nhánh RL)
   float bulletLifespan = 7.0f; ///< [MỚI] Thời gian đạn tồn tại (được chỉnh bởi Curriculum)
-  int maxBullets = 5;         ///< [MỚI] Giới hạn số đạn bắn ra (mặc định 5 cho thực chiến)
+  int maxBullets = 3;         ///< [MỚI] Giới hạn số đạn bắn ra (mặc định 3 cho thực chiến)
   MapMode mapMode = MapMode::NORMAL; ///< Kiểu bản đồ (dùng bởi training curriculum)
 
   // ---- Cấu hình phím (chỉ dùng cho human play) ----
