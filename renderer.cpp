@@ -1,6 +1,5 @@
 #include "renderer.h"
 #include <raylib.h>
-#include <cmath>
 
 // ========================================================================
 // Particle System — Hiệu ứng nổ xe tăng
@@ -130,11 +129,152 @@ void Renderer::DrawEffects() {
 // ========================================================================
 void Renderer::DrawWorld(const Game& game) {
     DrawMap(game.map);
+    // DrawGrid(game.map); // Debug: Vẽ Grid A* lên màn hình (Removed)
     DrawPortal(game.portal);
     for (const Item* item : game.items) DrawItem(*item);
     for (const Tank* t : game.tanks) DrawTank(*t);
     for (const Bullet* b : game.bullets) DrawBullet(*b);
+    DrawBounceRays(game);
     DrawEffects();
+}
+
+// ========================================================================
+// Vẽ đường đi A* (Debug)
+// ========================================================================
+void Renderer::DrawBotPaths(const Game& game) {
+    Color pathColors[4] = {
+        {60, 200, 60, 150},
+        {60, 100, 255, 150},
+        {255, 60, 60, 150},
+        {255, 200, 60, 150}
+    };
+    for (int i = 0; i < 4; i++) {
+        const auto& path = game.botPaths[i];
+        if (path.size() >= 2) {
+            for (size_t j = 0; j < path.size() - 1; j++) {
+                float x1 = path[j].x * SCALE;
+                float y1 = SCREEN_HEIGHT - path[j].y * SCALE;
+                float x2 = path[j+1].x * SCALE;
+                float y2 = SCREEN_HEIGHT - path[j+1].y * SCALE;
+                DrawLineEx({x1, y1}, {x2, y2}, 4.0f, pathColors[i]);
+                DrawCircle((int)x2, (int)y2, 5.0f, pathColors[i]);
+            }
+        }
+    }
+}
+
+// ========================================================================
+// Debug: Vẽ tia bounce (đường dự đoán nảy tường)
+// ========================================================================
+void Renderer::DrawBounceRays(const Game& game) {
+    Color rayColors[4] = {
+        {60, 255, 60, 180},    // Bot 0: xanh lá
+        {80, 120, 255, 180},   // Bot 1: xanh dương
+        {255, 80, 80, 180},    // Bot 2: đỏ
+        {255, 220, 60, 180},   // Bot 3: vàng
+    };
+    for (int i = 0; i < 4; i++) {
+        const auto& path = game.botBounceRays[i];
+        if (path.size() < 2) continue;
+
+        Color col = rayColors[i];
+        Color colDim = ColorAlpha(col, 0.4f);
+
+        for (size_t j = 0; j < path.size() - 1; j++) {
+            float x1 = path[j].x * SCALE;
+            float y1 = SCREEN_HEIGHT - path[j].y * SCALE;
+            float x2 = path[j+1].x * SCALE;
+            float y2 = SCREEN_HEIGHT - path[j+1].y * SCALE;
+
+            // Tia chính (glow + core)
+            DrawLineEx({x1, y1}, {x2, y2}, 3.0f, colDim);  // Glow
+            DrawLineEx({x1, y1}, {x2, y2}, 1.5f, col);      // Core
+
+            // Điểm bounce (chấm tròn tại mỗi bounce point)
+            if (j > 0) {
+                DrawCircle((int)x1, (int)y1, 4.0f, colDim);
+                DrawCircle((int)x1, (int)y1, 2.5f, col);
+            }
+        }
+
+        // Điểm cuối (enemy hit point)
+        float ex = path.back().x * SCALE;
+        float ey = SCREEN_HEIGHT - path.back().y * SCALE;
+        DrawCircle((int)ex, (int)ey, 5.0f, ColorAlpha(col, 0.3f));
+        DrawCircleLines((int)ex, (int)ey, 5.0f, col);
+
+        // Wall target (crosshair)
+        b2Vec2 tgt = game.botBounceTarget[i];
+        float tx = tgt.x * SCALE;
+        float ty = SCREEN_HEIGHT - tgt.y * SCALE;
+        if (tx > 0 && ty > 0) {
+            DrawCircleLines((int)tx, (int)ty, 8.0f, col);
+            DrawLineEx({tx-10, ty}, {tx+10, ty}, 1.0f, col);
+            DrawLineEx({tx, ty-10}, {tx, ty+10}, 1.0f, col);
+        }
+    }
+}
+
+// ========================================================================
+// Debug: Vẽ Grid A* lên màn hình — "Bật con mắt của A*"
+// Ô xanh = thoáng (0 tường), Ô vàng = 1 tường, Ô cam = 2 tường, Ô đỏ = 3+ tường
+// Đường vàng = tường ngang/dọc mà A* nhìn thấy
+// ========================================================================
+void Renderer::DrawGrid(const GameMap& map) {
+    const int ROWS = GameMap::ROWS; // 6
+    const int COLS = GameMap::COLS; // 8
+    float cellW = 90.0f, cellH = 90.0f;
+    float offsetX = (SCREEN_WIDTH - (COLS * cellW)) / 2.0f;
+    float offsetY = (SCREEN_HEIGHT - (ROWS * cellH)) / 2.0f - 50.0f;
+    
+    // Vẽ từng ô Grid với màu theo số tường xung quanh
+    for (int r = 0; r < ROWS; r++) {
+        for (int c = 0; c < COLS; c++) {
+            float x = offsetX + c * cellW;
+            float y = offsetY + r * cellH;
+            
+            int wallCount = 0;
+            if (map.hWalls[r][c]) wallCount++;     // Tường trên
+            if (map.hWalls[r+1][c]) wallCount++;   // Tường dưới
+            if (map.vWalls[r][c]) wallCount++;     // Tường trái
+            if (map.vWalls[r][c+1]) wallCount++;   // Tường phải
+            
+            Color cellColor;
+            if (wallCount >= 3) cellColor = {255, 40, 40, 35};     // Đỏ: ngõ cụt
+            else if (wallCount == 2) cellColor = {255, 150, 30, 25}; // Cam: hành lang
+            else if (wallCount == 1) cellColor = {255, 255, 60, 15}; // Vàng nhạt: gần tường
+            else cellColor = {40, 255, 40, 10};                      // Xanh: thoáng
+            
+            DrawRectangle((int)x + 1, (int)y + 1, (int)cellW - 2, (int)cellH - 2, cellColor);
+            
+            // Vẽ tâm ô (node A*)
+            DrawCircle((int)(x + cellW/2), (int)(y + cellH/2), 2.0f, {255, 255, 255, 40});
+        }
+    }
+    
+    // Vẽ tường ngang mà A* nhìn thấy (đường vàng)
+    for (int r = 0; r <= ROWS; r++) {
+        for (int c = 0; c < COLS; c++) {
+            if (map.hWalls[r][c]) {
+                float x1 = offsetX + c * cellW;
+                float y1 = offsetY + r * cellH;
+                float x2 = x1 + cellW;
+                DrawLineEx({x1, y1}, {x2, y1}, 2.0f, {255, 255, 0, 80});
+            }
+        }
+    }
+    
+    // Vẽ tường dọc mà A* nhìn thấy (đường vàng)
+    for (int r = 0; r < ROWS; r++) {
+        for (int c = 0; c <= COLS; c++) {
+            if (map.vWalls[r][c]) {
+                float x1 = offsetX + c * cellW;
+                float y1 = offsetY + r * cellH;
+                float y2 = y1 + cellH;
+                DrawLineEx({x1, y1}, {x1, y2}, 2.0f, {255, 255, 0, 80});
+            }
+        }
+    }
 }
 
 // ========================================================================
@@ -145,6 +285,7 @@ void Renderer::DrawTank(const Tank& tank) {
     float rot = -tank.body->GetAngle() * RAD2DEG;
     float x = pos.x * SCALE, y = SCREEN_HEIGHT - pos.y * SCALE;
 
+    // --- Removed invulnerability blink ---
     // Bảng màu cho từng player
     struct TankColors { Color body, dark, light, track, barrel; };
     TankColors palette[] = {
@@ -155,34 +296,15 @@ void Renderer::DrawTank(const Tank& tank) {
     };
     TankColors c = palette[tank.playerIndex % 4];
 
-    // --- Death Ray laser sight (RayCast đến tường gần nhất — thuần rendering) ---
+    // --- Death Ray laser sight ---
     if (tank.currentWeapon == ItemType::DEATH_RAY) {
         float ba = tank.body->GetAngle();
         b2Vec2 fwd(-sinf(ba), cosf(ba));
         float sx = x + fwd.x * 22.5f, sy = y - fwd.y * 22.5f;
-
-        // RayCast tìm tường gần nhất trong Box2D world
-        struct LaserCast : public b2RayCastCallback {
-            bool hit = false; b2Vec2 hitPt; float closest = 1.0f;
-            float ReportFixture(b2Fixture* f, const b2Vec2& p, const b2Vec2&, float frac) override {
-                if (f->GetBody()->GetType() == b2_staticBody && frac < closest)
-                    { hit = true; hitPt = p; closest = frac; return frac; }
-                return -1.0f;
-            }
-        } cast;
-        b2Vec2 rayStart = tank.body->GetPosition() + (22.5f / SCALE) * fwd;
-        b2Vec2 rayEnd   = tank.body->GetPosition() + (900.0f / SCALE) * fwd;
-        tank.body->GetWorld()->RayCast(&cast, rayStart, rayEnd);
-
-        float ex, ey;
-        if (cast.hit) { ex = cast.hitPt.x * SCALE; ey = SCREEN_HEIGHT - cast.hitPt.y * SCALE; }
-        else { ex = x + fwd.x * 800.0f; ey = y - fwd.y * 800.0f; }
-
+        float ex = x + fwd.x * 800.0f, ey = y - fwd.y * 800.0f;
         DrawLineEx({sx, sy}, {ex, ey}, 4.0f, ColorAlpha(RED, 0.08f));
         DrawLineEx({sx, sy}, {ex, ey}, 2.0f, ColorAlpha(RED, 0.2f));
         DrawLineEx({sx, sy}, {ex, ey}, 1.0f, ColorAlpha(RED, 0.5f));
-        // Chấm đỏ tại điểm chạm tường
-        if (cast.hit) DrawCircle((int)ex, (int)ey, 3.0f, ColorAlpha(RED, 0.3f));
     }
 
     // --- Shadow ---
@@ -195,8 +317,8 @@ void Renderer::DrawTank(const Tank& tank) {
     Color trackLine = {(unsigned char)(c.track.r + 25), (unsigned char)(c.track.g + 25), (unsigned char)(c.track.b + 25), 180};
     for (int i = 0; i < 4; i++) {
         float yOff = -2.25f + i * 6.0f;
-        DrawRectanglePro({x, y, 4.5f, 1.5f}, {13.5f, 6.75f - yOff}, rot, trackLine);
-        DrawRectanglePro({x, y, 4.5f, 1.5f}, {-9.0f, 6.75f - yOff}, rot, trackLine);
+        DrawRectanglePro({x, y, 4.5f, 1.1f}, {13.5f, 6.75f - yOff}, rot, trackLine);
+        DrawRectanglePro({x, y, 4.5f, 1.1f}, {-9.0f, 6.75f - yOff}, rot, trackLine);
     }
 
     // --- Thân xe (body) 3 lớp tạo chiều sâu ---
@@ -206,9 +328,9 @@ void Renderer::DrawTank(const Tank& tank) {
 
     // --- Nòng súng (barrel) ---
     DrawRectanglePro({x, y, 6.0f, 13.5f}, {3.0f, 18.0f}, rot, c.dark);     // Nòng viền
-    DrawRectanglePro({x, y, 4.0f, 12.5f}, {2.0f, 17.5f}, rot, c.barrel);   // Nòng trong
+    DrawRectanglePro({x, y, 3.75f, 12.75f}, {1.875f, 17.625f}, rot, c.barrel);   // Nòng trong
     // Lỗ nòng (đầu)
-    DrawRectanglePro({x, y, 3.0f, 2.5f}, {1.5f, 18.0f}, rot, {50,50,50,255});
+    DrawRectanglePro({x, y, 3.0f, 2.25f}, {1.5f, 18.0f}, rot, {50,50,50,255});
 
     // --- Tháp pháo (turret) — vòng tròn tại tâm xoay ---
     DrawCircle((int)x, (int)y, 6.75f, c.dark);
@@ -228,9 +350,11 @@ void Renderer::DrawTank(const Tank& tank) {
             float a = time * 2.0f + i * PI / 3.0f;
             float px = x + cosf(a) * 19.5f;
             float py = y + sinf(a) * 19.5f;
-            DrawCircle((int)px, (int)py, 1.5f, ColorAlpha({180, 220, 255, 255}, 0.5f * pulse));
+            DrawCircle((int)px, (int)py, 2.0f, ColorAlpha({180, 220, 255, 255}, 0.5f * pulse));
         }
     }
+
+    // --- HP Bar removed ---
 }
 
 // ========================================================================
@@ -312,37 +436,10 @@ void Renderer::DrawBullet(const Bullet& bullet) {
 // ========================================================================
 void Renderer::DrawMap(const GameMap& map) {
     for (b2Body* wall : map.GetWalls()) {
-        // ── Kiểm tra null fixture ──
-        b2Fixture* fixture = wall->GetFixtureList();
-        if (!fixture) continue;
-
-        // ── Kiểm tra shape type là polygon ──
-        b2Shape* baseShape = fixture->GetShape();
-        if (!baseShape || baseShape->GetType() != b2Shape::e_polygon) continue;
-
-        b2PolygonShape* shape = (b2PolygonShape*)baseShape;
-        
-        // ── Kiểm tra vertices count ──
-        if (shape->m_count < 2) continue;
-
+        b2PolygonShape* shape = (b2PolygonShape*)wall->GetFixtureList()->GetShape();
         b2Vec2 pos = wall->GetPosition();
-        
-        // ── Tính bounding box từ vertices ──
-        float minX = shape->m_vertices[0].x;
-        float maxX = minX;
-        float minY = shape->m_vertices[0].y;
-        float maxY = minY;
-        
-        for (int i = 1; i < shape->m_count; i++) {
-            minX = std::min(minX, shape->m_vertices[i].x);
-            maxX = std::max(maxX, shape->m_vertices[i].x);
-            minY = std::min(minY, shape->m_vertices[i].y);
-            maxY = std::max(maxY, shape->m_vertices[i].y);
-        }
-        
-        float w = (maxX - minX) * SCALE;
-        float h = (maxY - minY) * SCALE;
-        
+        float w = shape->m_vertices[1].x * 2 * SCALE;
+        float h = shape->m_vertices[2].y * 2 * SCALE;
         float sx = pos.x * SCALE;
         float sy = SCREEN_HEIGHT - pos.y * SCALE;
         float rot = wall->GetAngle() * RAD2DEG;

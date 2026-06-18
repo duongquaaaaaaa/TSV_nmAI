@@ -15,7 +15,8 @@ public:
 
     /// Mở màn hình Cài đặt tổng hợp
     static void ShowSettingsScreen(int& numPlayers, bool& portalsEnabled, bool& itemsEnabled,
-        bool& shieldsEnabled, std::vector<PlayerConfig>& configs);
+        bool& shieldsEnabled, std::vector<PlayerConfig>& configs,
+        std::vector<bool>& isBot, std::vector<bool>& isAI, std::vector<bool>& isAstar);
 
     /// Mở màn hình gán phím cho 1 người chơi (6 phím)
     static void ShowKeyBindingScreen(int& fw, int& bw, int& tl, int& tr, int& sh, int& shield, int playerIndex);
