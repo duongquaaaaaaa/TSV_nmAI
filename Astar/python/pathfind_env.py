@@ -83,6 +83,8 @@ class BridgeEnv:
 
 
     def launch(self) -> None:
+        if os.environ.get("AZ_NO_LAUNCH") == "1":
+            return
         if self._proc and self._proc.poll() is None:
             return
         if not os.path.exists(self.exe_path):
