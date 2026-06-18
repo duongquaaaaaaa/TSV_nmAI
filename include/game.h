@@ -29,7 +29,8 @@ public:
 
   // ---- Thông số & cài đặt ----
   float itemSpawnTimer; ///< Đếm ngược sinh vật phẩm
-  int playerScores[4];  ///< Bảng điểm 4 slot
+  int playerScores[4];  ///< Bảng điểm 4 slot (chiến thắng nhờ sống sót)
+  int playerKills[4];   ///< [MỚI] Bảng điểm kill thực sự (ai bắn trúng)
   int numPlayers;       ///< Số lượng người chơi
   bool needsRestart;    ///< Cờ cần reset match
   bool portalsEnabled;  ///< Bật/tắt cổng dịch chuyển
@@ -41,6 +42,9 @@ public:
 
   // ---- Cấu hình phím (chỉ dùng cho human play) ----
   std::vector<PlayerConfig> configs;
+
+  // ---- Bộ đếm Frame toàn cục (Dùng cho logic AI) ----
+  unsigned int frameCount = 0;
 
   // ---- Sự kiện dùng cho hiệu ứng đồ họa (Renderer đọc) ----
   std::vector<DeathEvent> recentDeaths; ///< Xe tăng bị tiêu diệt frame này

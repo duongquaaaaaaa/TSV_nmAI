@@ -6,7 +6,10 @@
  */
 Game::Game() : world(b2Vec2(0.0f, 0.0f)), numPlayers(2), needsRestart(true), portalsEnabled(true), itemsEnabled(true), shieldsEnabled(true) {
     itemSpawnTimer = 5.0f;
-    for(int i = 0; i < 4; i++) playerScores[i] = 0;
+    for(int i = 0; i < 4; i++) {
+        playerScores[i] = 0;
+        playerKills[i] = 0;
+    }
     configs.resize(4);
 }
 
@@ -24,6 +27,7 @@ Game::~Game() {
  * @brief Dọn sạch bàn đấu, sinh map mới, spawn xe tăng tại vị trí ngẫu nhiên.
  */
 void Game::ResetMatch() {
+    frameCount = 0;
     map.Clear(world);
     for (Tank* t : tanks) { world.DestroyBody(t->body); delete t; } tanks.clear();
     for (Bullet* b : bullets) { world.DestroyBody(b->body); delete b; } bullets.clear();
@@ -64,6 +68,7 @@ void Game::ResetMatch() {
  * Model AI sẽ học chuẩn xác hoàn toàn (Deterministic), giúp train hiệu quả.
  */
 void Game::Update(const std::vector<TankActions>& actions, float dt) {
+    frameCount++;
     // Xóa Log tử vong của Frame trước. 
     // Chúng ta chỉ lưu những xe chết ở frame NÀY để Renderer biết chỗ tạo Vụ Nổ.
     recentDeaths.clear();
@@ -89,6 +94,10 @@ void Game::Update(const std::vector<TankActions>& actions, float dt) {
         t->Update(world, bullets, items, act, dt, shieldsEnabled, this->bulletLifespan, this->maxBullets);
         if (t->isDestroyed) {
             recentDeaths.push_back({t->body->GetPosition(), t->playerIndex});
+            // Update playerKills if this tank was killed by someone else
+            if (t->lastHitByPlayerIndex >= 0 && t->lastHitByPlayerIndex < 4 && t->lastHitByPlayerIndex != t->playerIndex) {
+                playerKills[t->lastHitByPlayerIndex]++;
+            }
             world.DestroyBody(t->body); delete t;
             tanks.erase(tanks.begin() + i);
         } else {

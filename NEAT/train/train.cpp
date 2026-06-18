@@ -69,6 +69,11 @@ static float RunEpisode(Network &agentNet, const PhaseConfig &cfg, int seed,
   std::vector<float> enemyObs(36, 0.0f);
   std::vector<float> agentOut, enemyOut;
   int scoresBefore[4] = {0, 0, 0, 0};
+  int killsBefore[4] = {0, 0, 0, 0};
+  for(int i = 0; i < 4; i++) {
+    scoresBefore[i] = game.playerScores[i];
+    killsBefore[i] = game.playerKills[i];
+  }
   int actualSteps = cfg.maxSteps;
   bool agentDidShoot = false;
 
@@ -92,7 +97,7 @@ static float RunEpisode(Network &agentNet, const PhaseConfig &cfg, int seed,
       astarWaypoint =
           game.map.GetNextWaypoint(game.tanks[0]->body->GetPosition(),
                                    game.tanks[1]->body->GetPosition());
-      astarCounter = ASTAR_REFRESH_INTERVAL;
+      astarCounter = 0; // RECOMPUTE EVERY FRAME FOR ACCURATE A*
     }
     astarCounter--;
 
@@ -102,7 +107,7 @@ static float RunEpisode(Network &agentNet, const PhaseConfig &cfg, int seed,
 
     std::vector<TankActions> actions(game.numPlayers);
     actions[0] = OutputToActions(agentOut);
-    if (agentObs[21] < 0.99f)
+    if (actions[0].shoot)
       agentDidShoot = true;
 
     switch (currentEnemy) {
@@ -117,7 +122,7 @@ static float RunEpisode(Network &agentNet, const PhaseConfig &cfg, int seed,
       // [VÁ LỖI TỰ SÁT]: Random bot xả đạn quá nhiều (cứ 8 frame 1 viên)
       // Giảm tần suất xuống cỡ 1 viên / 1.5 giây để tránh nó tự chết quá nhanh
       ra.shoot = (AZ::Rand() % 90 == 0);
-      // (Đã tắt khiên)
+      // (Tính năng khiên đã bị tắt trong huấn luyện)
       ra.shield = false;
       actions[1] = ra;
       break;
@@ -163,7 +168,7 @@ static float RunEpisode(Network &agentNet, const PhaseConfig &cfg, int seed,
                                  distToEnemy, actions[0], agentObs, cfg.phase);
   }
 
-  fitness += ComputeEndBonus(game, 0, scoresBefore, actualSteps, cfg.maxSteps,
+  fitness += ComputeEndBonus(game, 0, scoresBefore, killsBefore, actualSteps, cfg.maxSteps,
                              agentDidShoot, cfg.phase);
   return fitness;
 }
@@ -188,7 +193,8 @@ static float EvaluateGenome(Genome &genome, const PhaseConfig &cfg,
 
 // ─────────────────────────────────────────────────────────────────────────────
 static bool RunPhase(Population &pop, const PhaseConfig &cfg,
-                     const Genome *frozenEnemy, const std::string &outDir) {
+                     const Genome *frozenEnemy, const std::string &outDir,
+                     bool appendLog = false) {
   printf(
       "\n╔══════════════════════════════════════════════════════════════╗\n");
   printf("║  %-60s║\n", cfg.name.c_str());
@@ -197,9 +203,18 @@ static bool RunPhase(Population &pop, const PhaseConfig &cfg,
   printf("╚══════════════════════════════════════════════════════════════╝\n");
 
   std::string logPath = outDir + "/" + cfg.name + "_log.csv";
-  FILE *logFile = fopen(logPath.c_str(), "w");
-  if (logFile)
-    fprintf(logFile, "gen,best,avg,species\n");
+  bool fileExists = std::filesystem::exists(logPath);
+  FILE *logFile = nullptr;
+  if (appendLog && fileExists) {
+    logFile = fopen(logPath.c_str(), "a");
+  } else {
+    logFile = fopen(logPath.c_str(), "w");
+  }
+  if (logFile) {
+    if (!appendLog || !fileExists) {
+      fprintf(logFile, "gen,best,avg,species\n");
+    }
+  }
 
   int streak = 0;
   bool promoted = false;
@@ -210,7 +225,7 @@ static bool RunPhase(Population &pop, const PhaseConfig &cfg,
     std::vector<int> seeds;
     seeds.reserve(cfg.kSeeds);
     for (int k = 0; k < cfg.kSeeds; k++)
-      seeds.push_back(42000 + gen * 100 + k);
+      seeds.push_back(AZ::Rand()); // DÙNG RANDOM THỰC SỰ TRÁNH TƯƠNG QUAN MÔI TRƯỜNG
 
     pop.EvaluateAll([&](Genome &g) -> float {
       return EvaluateGenome(g, cfg, seeds, currentEnemyGen);
@@ -228,8 +243,8 @@ static bool RunPhase(Population &pop, const PhaseConfig &cfg,
     }
     avg /= (float)pop.genomes.size();
 
-    // Cập nhật đối thủ Self-play định kỳ mỗi 10 thế hệ để tránh học lệch
-    if (cfg.enemyType == EnemyType::SELF_PLAY && (gen + 1) % 10 == 0) {
+    // Cập nhật đối thủ Self-play định kỳ mỗi 5 thế hệ (tránh Forgetting problem)
+    if (cfg.enemyType == EnemyType::SELF_PLAY && (gen + 1) % 5 == 0) {
       selfPlayOpponentCopy = pop.genomes[bestIdx];
       currentEnemyGen = &selfPlayOpponentCopy;
       printf("      [Self-Play] Đã cập nhật đối thủ thế hệ tiếp theo thành bản sao tốt nhất thế hệ %d\n", gen + 1);
@@ -346,7 +361,8 @@ int main(int argc, char *argv[]) {
 
   for (int p = startPhase; p <= 5; p++) {
     PhaseConfig cfg = GetPhaseConfig(static_cast<Phase>(p));
-    bool graduated = RunPhase(pop, cfg, lastBest, "agents");
+    bool appendLog = (p == startPhase && argc >= 3);
+    bool graduated = RunPhase(pop, cfg, lastBest, "agents", appendLog);
 
     if (lastBest)
       delete lastBest;

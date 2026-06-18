@@ -8,12 +8,12 @@
 #endif
 
 /**
- * @brief Phiên bản bot đối thủ chạy bằng luật (Rule-based) dùng trong huấn luyện từ Phase 2 trở đi.
- *        Trả về TankActions cho bot dựa trên các heuristic đơn giản.
+ * @brief Rule-based enemy variant used in Phase 3+ training.
+ *        Produces a TankActions for the enemy player based on simple
+ * heuristics.
  *
- * VARIANT 1 (Phase 2): Wanderer (di chuyển ngẫu nhiên, không bắn).
- * VARIANT 2 (Phase 3): Fighter (đuổi theo agent, bắn nghiệp dư, không dùng khiên).
- * VARIANT 3 (Phase 4): Sniper Boss (đuổi theo agent, dừng xe ngắm bắn chuẩn, không dùng khiên).
+ * VARIANT 1 (Phase 3): Turn toward agent + advance + shoot when aligned.
+ * VARIANT 2 (Phase 4): Adds bullet-dodging and item-seeking behaviour.
  */
 
 // ── Helper: normalise angle to [-π, π] ───────────────────────────────────────
@@ -44,13 +44,14 @@ inline TankActions GetRuleEnemyV1(const Game &game, int enemyIdx) {
   float myAngle = me->body->GetAngle();
 
   // 1. Logic Tuần tra ngẫu nhiên (Wandering):
-  //    Dùng hash vị trí hiện tại để chọn mục tiêu. Khi bot đến gần mục tiêu (<1.5m),
-  //    hash sẽ thay đổi → tự động chọn mục tiêu mới.
+  //    Dùng frameCount để đổi mục tiêu mỗi 180 frames (3 giây).
+  //    Điều này ngăn lỗi bot dao động (kẹt) ở ranh giới 2 ô, 
+  //    thay vì hash vị trí cellR/C.
   int cellR, cellC;
   auto rc = game.map.WorldToCell(myPos);
   cellR = rc.first;
   cellC = rc.second;
-  unsigned int pSeed = (unsigned int)(cellR * 31 + cellC * 17 + enemyIdx * 7);
+  unsigned int pSeed = (unsigned int)(game.frameCount / 180 + enemyIdx * 7);
 
   // Chọn một ô lưới ngẫu nhiên (tránh sát biên)
   int targetRow = (int)(pSeed % (GameMap::ROWS - 2)) + 1;
@@ -140,7 +141,7 @@ inline TankActions GetRuleEnemyV2(const Game &game, int enemyIdx) {
   return act;
 }
 
-// ── Variant 3: Waypoint seeker + Sniper (Stop and Shoot) ────────────
+// ── Variant 3: Waypoint seeker + Sniper (Stop and Shoot) + Shield ────────────
 inline TankActions GetRuleEnemyV3(const Game &game, int enemyIdx) {
   TankActions act{};
 
@@ -236,24 +237,7 @@ inline TankActions GetRuleEnemyV3(const Game &game, int enemyIdx) {
       act.shoot = false;
   }
 
-  // 4. Logic Khiên: Phản xạ khi có đạn bay tới (Đã bị vô hiệu hóa)
-  /*
-  if (me->shieldCooldownTimer <= 0.0f) {
-    for (auto *b : game.bullets) {
-      if (b->ownerPlayerIndex == me->playerIndex)
-        continue;
-      b2Vec2 bulletPos = b->body->GetPosition();
-      b2Vec2 toBullet = bulletPos - myPos;
-      if (toBullet.Length() < 2.5f) {
-        b2Vec2 relVel = b->body->GetLinearVelocity();
-        if (b2Dot(relVel, toBullet) < 0) { // Đạn đang bay về phía mình
-          act.shield = true;
-          break;
-        }
-      }
-    }
-  }
-  */
+  // (Tính năng khiên đã bị gỡ bỏ khỏi huấn luyện, Boss không dùng khiên nữa)
 
   return act;
 }

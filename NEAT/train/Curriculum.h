@@ -45,9 +45,10 @@ inline PhaseConfig GetPhaseConfig(Phase phase) {
         MapMode::SPARSE,       // Bản đồ trống, ít tường
         EnemyType::STATIONARY, // Đối thủ: Đứng yên
         1200,                  // Max steps mỗi ván
-        10,     // Số ván đấu mỗi cá thể (kSeeds) — 5→10 giảm variance map
-        500,    // Số thế hệ tối đa
-        500.0f, // Điểm ngưỡng thăng hạng (Hợp lý hơn cho mầm non)
+        5,      // kSeeds=5: SPARSE map it variation, 5 seeds du de bao quat
+                // Giam tu 10 de giam variance fitness, tang toc do hoi tu
+        500,    // maxGenerations
+        450.0f, // Điểm ngưỡng thăng hạng (Hợp lý hơn cho mầm non)
         false,  // Vật phẩm (Items)
         false,  // Cổng dịch chuyển (Portals)
         false,  // Khiên (Shields)
@@ -66,7 +67,8 @@ inline PhaseConfig GetPhaseConfig(Phase phase) {
         1500,
         10,  // 6→10: NORMAL map variance cao, cần nhiều seed hơn
         350, // 200→350: nhảy SPARSE→NORMAL + STAT→Wanderer cần nhiều gen hơn
-        480.0f,
+        420.0f, // 80% winrate = chơi ổn (9/10 map thắng hoặc 8W+2 hòa)
+                // Giảm từ 480 vì đòi hỏi gần hoàn hảo quá
         false,
         false,
         false,
@@ -83,26 +85,27 @@ inline PhaseConfig GetPhaseConfig(Phase phase) {
         EnemyType::RULE_V2, // Đối thủ: Fighter (Bắn nghiệp dư, không khiên)
         1500,
         10, // 8→10: Fighter bắn trả = variance cao, cần nhiều seed
-        350,    // 250→350: thêm enemy bắn trả (kỹ năng mới)
-        480.0f, // Engagement mode không có move reward → step total thấp hơn
+        350,    // 250→350: thêm enemy bắn trả + shield = 2 kỹ năng mới
+        360.0f, // 72% winrate = chơi ổn với fighter bắn trả
+                // Giảm từ 480 vì enemy có thể giết agent → chẵng thang thải xuống rất nhanh
         false,
         false,
-        false, // Tắt khiên theo yêu cầu
+        false, // Tắt khiên ở Phase 3
         3.5f,
         3,
-        10,    // 15→10: V2 bắn trả gây variance cao, 10 gen là đủ
-        0.25f, // 40→25%: trộn V1 (không phải STAT) để ôn mê cung
+        7,     // Giam tu 10 -> 7: V2 ban tra gay variance cao, 7 gen la du chung minh nang luc
+        0.25f, // 40->25%: tron V1 (khong phai STAT) de on me cung
         "Phase3_Fighter"};
 
   case Phase::PHASE4:
     return {Phase::PHASE4, MapMode::NORMAL,
-            EnemyType::RULE_V3, // Đối thủ: Sniper Boss (Ngắm chuẩn, không khiên)
-            1500, 10, 300,
+            EnemyType::RULE_V3, // Đối thủ: Sniper Boss (Ngắm chuẩn, có khiên)
+            1500, 16, 300,
             400.0f, // V3 cực mạnh, cần 70% winrate để đạt 400 (500 cần 80% =
                     // quá khó)
-            false, false, false, 7.0f, 5,
+            false, false, false, 7.0f, 3, // maxBullets = 3 (đồng nhất mọi phase)
             10,    // Sparse reward variance cao, 10 gen là đủ
-            0.35f, // 35% trộn RULE_V2 để AI ôn bài
+            0.5f,  // 50% trộn RULE_V2 để AI ôn bài và giảm độ khó đầu phase
             "Phase4_SniperBoss"};
 
   case Phase::PHASE5:
@@ -111,7 +114,7 @@ inline PhaseConfig GetPhaseConfig(Phase phase) {
             1500, 12, 500,
             300.0f, // Self-play 50/50 chỉ cho ~365, threshold 300 = an toàn cho
                     // streak
-            false, false, false, 7.0f, 5,
+            false, false, false, 7.0f, 3, // maxBullets = 3 (đồng nhất mọi phase)
             10,    // Self-play variance cực cao, 10 gen là đủ
             0.50f, // 50% trộn RULE_V3 để giữ kỷ luật Sniper
             "Phase5_Tournament"};
