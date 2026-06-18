@@ -164,25 +164,28 @@ inline float ComputeStepReward(const Game &game, int agentIdx, bool canSeeEnemy,
   // ═══════════════════════════════════════════════════════════════════════════
 
   // ══ KÊNH 0: CHỐNG DEGENERATE BEHAVIOR (ưu tiên cao nhất, chạy luôn) ══
+  // [FIX VĐ #6] Giảm ~40% magnitude penalty để tổng step reward KHÔNG áp đảo end bonus.
+  // Trước: worst-case -762 pts > Win bonus +700 → agent học "không làm gì".
+  // Sau:   worst-case ~-460 pts < Win bonus +700 → thắng vẫn quan trọng nhất.
 
   // Chống tường
   if (noseInWall) {
-    if (actions.forward)       reward -= 5.0f * DT_SCALE;
+    if (actions.forward)       reward -= 3.0f * DT_SCALE;
     else if (actions.backward) reward += 0.8f * DT_SCALE;
-    else                       reward -= 1.5f * DT_SCALE;
+    else                       reward -= 1.0f * DT_SCALE;
   }
 
   // Chống beyblade (xoay tại chỗ)
   if (angVel > 2.5f && speedNow < 0.5f)
-    reward -= 4.0f * DT_SCALE;
+    reward -= 2.5f * DT_SCALE;
 
   // Chống idle khi chưa thấy địch
   if (!canSeeEnemy && speedNow < 0.4f && !noseInWall)
-    reward -= 2.0f * DT_SCALE;
+    reward -= 1.5f * DT_SCALE;
 
   // Chống áp sát (kamikaze) — tăng tỉ lệ thuận với mức độ quá gần
   if (currDist < 1.8f)
-    reward -= 5.0f * DT_SCALE * (1.8f - currDist) / 1.8f;
+    reward -= 3.0f * DT_SCALE * (1.8f - currDist) / 1.8f;
 
   // ══ KÊNH 1: NAVIGATION (khi chưa thấy địch hoặc địch còn xa) ══
   // [FIX #3] Thưởng HÀNH VI di chuyển (velocity dot waypoint), không thưởng trạng thái.
@@ -226,7 +229,7 @@ inline float ComputeStepReward(const Game &game, int agentIdx, bool canSeeEnemy,
 
     // P3+: Phạt lùi trốn khi ở sweet spot (trừ khi né đạn)
     if (phase >= Phase::PHASE3 && actions.backward && !dangerAlert && currDist >= 3.0f)
-      reward -= 5.0f * DT_SCALE;
+      reward -= 3.0f * DT_SCALE;
 
     // P3+: Thưởng strafe (di chuyển ngang) trong engagement — dạy agent né đạn V2 trong khi giữ aim
     // Velocity ngang (lateral) trong local frame = vel.x * (-fwd.y) + vel.y * fwd.x
@@ -261,7 +264,7 @@ inline float ComputeStepReward(const Game &game, int agentIdx, bool canSeeEnemy,
         if (speedNow < 0.3f) shootBonus *= 0.4f; // Phạt ngầm khi đứng im bắn
         reward += shootBonus;
       } else {
-        reward -= 3.0f * DT_SCALE; // Bắn bừa
+        reward -= 2.0f * DT_SCALE; // Bắn bừa
       }
     } else if (phase == Phase::PHASE3 || phase == Phase::PHASE4) {
       if (!canSeeEnemy) {
@@ -292,6 +295,11 @@ inline float ComputeStepReward(const Game &game, int agentIdx, bool canSeeEnemy,
       reward -= 4.0f * DT_SCALE; 
     }
   }
+
+  // [FIX VĐ #6] Clamp tổng step reward mỗi frame để đảm bảo end bonus thống trị.
+  // Max negative: -0.3 * 60 = -18 pts/s → 25s = -450 pts (< Win +700)
+  // Max positive: +0.4 * 60 = +24 pts/s → 25s = +600 pts (< Win +700)
+  reward = std::clamp(reward, -0.30f, 0.40f);
 
   return reward;
 }

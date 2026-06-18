@@ -93,11 +93,13 @@ static float RunEpisode(Network &agentNet, const PhaseConfig &cfg, int seed,
   }
 
   for (int step = 0; step < cfg.maxSteps; step++) {
+    // A* recompute: chỉ mỗi N frames để tiết kiệm CPU
+    // (trước đây astarCounter luôn = 0 → recompute MỌI frame vô ích)
     if (astarCounter <= 0 && game.tanks.size() >= 2) {
       astarWaypoint =
           game.map.GetNextWaypoint(game.tanks[0]->body->GetPosition(),
                                    game.tanks[1]->body->GetPosition());
-      astarCounter = 0; // RECOMPUTE EVERY FRAME FOR ACCURATE A*
+      astarCounter = ASTAR_REFRESH_INTERVAL;
     }
     astarCounter--;
 
@@ -153,19 +155,21 @@ static float RunEpisode(Network &agentNet, const PhaseConfig &cfg, int seed,
 
     game.Update(actions, DT);
 
+    // Sau game.Update(), agent có thể đã chết → tanks.size() < 2
+    // Phải check lại trước khi tính reward.
     if (game.needsRestart) {
       actualSteps = step + 1;
       break;
     }
 
-    bool canSee = false;
+    // Chỉ tính step reward khi cả 2 tank còn sống
     if (game.tanks.size() >= 2) {
-      canSee = CheckLineOfSight(game, game.tanks[0]->body->GetPosition(),
-                                game.tanks[1]->body->GetPosition());
+      bool canSee = CheckLineOfSight(game, game.tanks[0]->body->GetPosition(),
+                                     game.tanks[1]->body->GetPosition());
+      float prev = distToEnemy;
+      fitness += ComputeStepReward(game, 0, canSee, astarWaypoint, prev,
+                                   distToEnemy, actions[0], agentObs, cfg.phase);
     }
-    float prev = distToEnemy;
-    fitness += ComputeStepReward(game, 0, canSee, astarWaypoint, prev,
-                                 distToEnemy, actions[0], agentObs, cfg.phase);
   }
 
   fitness += ComputeEndBonus(game, 0, scoresBefore, killsBefore, actualSteps, cfg.maxSteps,
@@ -187,7 +191,9 @@ static float EvaluateGenome(Genome &genome, const PhaseConfig &cfg,
     total += RunEpisode(agentNet, cfg, seed, enemyNet.get());
   }
   float avg = total / (float)seeds.size();
-  avg -= 0.005f * (float)genome.conns.size();
+  // Complexity penalty: phạt mạng phình, nhưng scale nhẹ hơn
+  // để không triệt tiêu innovation. 216 conns cơ bản = ~0.4 pts.
+  avg -= 0.002f * (float)genome.conns.size();
   return avg;
 }
 
@@ -331,8 +337,13 @@ int main(int argc, char *argv[]) {
         maxC = std::max(maxC, c.innovation);
       InnovationTracker::Get().UpdateCounters(maxN, maxC);
 
+      // [FIX VĐ #5] Giữ genome[0] nguyên bản (elite), mutate phần còn lại
+      // để tạo diversity cho population. Trước đây tất cả 300 genomes giống
+      // hệt nhau → speciation gom vào 1 species → mất khả năng khám phá.
       for (auto &gen : pop.genomes)
         gen = loadedG;
+      for (size_t i = 1; i < pop.genomes.size(); i++)
+        pop.genomes[i].Mutate();
       lastBest = new Genome(loadedG);
       printf("  [LOADED] Continuing from: %s (MaxID: %d)\n", ckptPath.c_str(),
              maxN);

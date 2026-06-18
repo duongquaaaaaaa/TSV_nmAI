@@ -351,6 +351,18 @@ private:
         c.weight = RandWeight();
       }
     }
+    // [FIX BUG #1] Mutate biases cho HIDDEN và OUTPUT nodes.
+    // Trước đây bias luôn = 0.0f → hidden nodes gần như vô dụng.
+    // Bias cho phép shift activation function, quyết định threshold kích hoạt.
+    for (auto &n : nodes) {
+      if (n.type == NodeType::INPUT) continue; // Input không có bias
+      if (RandFloat01() < NeatCfg::WEIGHT_PERTURB_RATE) {
+        n.bias += perturb(NeatRng());
+        n.bias = std::clamp(n.bias, -5.0f, 5.0f);
+      } else {
+        n.bias = RandWeight();
+      }
+    }
   }
 
   void AddConnection() {
@@ -439,11 +451,17 @@ private:
     conns.push_back(c2);
   }
 
+  // [FIX BUG #3] Chỉ disable connection đang enabled (không re-enable ngẫu nhiên).
+  // Tránh vô hiệu hóa rồi hồi sinh liên tục gây nhiễu tiến hóa.
   void ToggleConnection() {
     if (conns.empty())
       return;
-    auto &rng = NeatRng();
-    conns[RandIdx((int)conns.size())].enabled ^= true;
+    // Thu thập chỉ những connection đang enabled
+    std::vector<int> enabledIdxs;
+    for (int i = 0; i < (int)conns.size(); i++)
+      if (conns[i].enabled) enabledIdxs.push_back(i);
+    if (enabledIdxs.empty()) return;
+    conns[enabledIdxs[RandIdx((int)enabledIdxs.size())]].enabled = false;
   }
 
   // DFS from 'to': true if we can reach 'from' → adding from→to would create a
