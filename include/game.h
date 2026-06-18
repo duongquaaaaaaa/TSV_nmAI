@@ -28,18 +28,21 @@ public:
   Portal portal;                 ///< Cổng dịch chuyển
 
   // ---- Thông số & cài đặt ----
-  float itemSpawnTimer; ///< Đếm ngược sinh vật phẩm
-  int playerScores[4];  ///< Bảng điểm 4 slot (chiến thắng nhờ sống sót)
-  int playerKills[4];   ///< [MỚI] Bảng điểm kill thực sự (ai bắn trúng)
-  int numPlayers;       ///< Số lượng người chơi
-  bool needsRestart;    ///< Cờ cần reset match
-  bool portalsEnabled;  ///< Bật/tắt cổng dịch chuyển
-  bool itemsEnabled;    ///< Bật/tắt vật phẩm
-  bool shieldsEnabled;  ///< Bật/tắt khiên
+  float itemSpawnTimer;   ///< Đếm ngược sinh vật phẩm
+  int playerScores[4];    ///< Bảng điểm 4 slot (chiến thắng nhờ sống sót)
+  int playerKills[4];     ///< [MỚI] Bảng điểm kill thực sự (ai bắn trúng)
+  int numPlayers;         ///< Số lượng người chơi
+  bool needsRestart;      ///< Cờ cần reset match
+  bool portalsEnabled;    ///< Bật/tắt cổng dịch chuyển
+  bool itemsEnabled;      ///< Bật/tắt vật phẩm
+  bool shieldsEnabled;    ///< Bật/tắt khiên
   bool mapEnabled = true; ///< Bật/tắt map (Dành cho nhánh RL)
-  float bulletLifespan = 7.0f; ///< [MỚI] Thời gian đạn tồn tại (được chỉnh bởi Curriculum)
-  int maxBullets = 3;         ///< [MỚI] Giới hạn số đạn bắn ra (mặc định 3 cho thực chiến)
-  MapMode mapMode = MapMode::NORMAL; ///< Kiểu bản đồ (dùng bởi training curriculum)
+  float bulletLifespan =
+      7.0f; ///< [MỚI] Thời gian đạn tồn tại (được chỉnh bởi Curriculum)
+  int maxBullets =
+      3; ///< [MỚI] Giới hạn số đạn bắn ra (mặc định 3 cho thực chiến)
+  MapMode mapMode =
+      MapMode::NORMAL; ///< Kiểu bản đồ (dùng bởi training curriculum)
 
   // ---- Cấu hình phím (chỉ dùng cho human play) ----
   std::vector<PlayerConfig> configs;

@@ -82,7 +82,7 @@ inline void GetObservation(const Game &game, int agentIdx, b2Vec2 astarWaypoint,
   const float worldW = (float)SCREEN_WIDTH / SCALE;
   const float worldH = (float)SCREEN_HEIGHT / SCALE;
   const float maxDist = std::sqrt(worldW * worldW + worldH * worldH);
-  const float MAX_ACTIVE_BULLETS = 5.0f;
+  const float MAX_ACTIVE_BULLETS = 3.0f;
 
   // ── [0-3] Agent State ──
   obs[0] = aPos.x / worldW;
