@@ -146,6 +146,7 @@ int main(int argc, char* argv[]) {
             }
             // Cập nhật lại danh sách bot nếu có thay đổi trong cài đặt
             for (int i = 0; i < 4; i++) {
+                // Xóa tất cả instance cũ trước
                 auto clearAll = [&]() {
                     if (bots[i])      { delete bots[i];      bots[i]      = nullptr; }
                     if (aiBots[i])   { delete aiBots[i];   aiBots[i]   = nullptr; }

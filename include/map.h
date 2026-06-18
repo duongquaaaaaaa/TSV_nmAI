@@ -18,8 +18,6 @@ enum class MapMode {
  */
 class GameMap {
 public:
-    static const int ROWS = 6;
-    static const int COLS = 8;
 
     /// Dữ liệu tường dạng hình chữ nhật (tọa độ pixel, tâm, chiều rộng/cao)
     struct WallRect {
