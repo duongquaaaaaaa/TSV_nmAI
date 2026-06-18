@@ -105,4 +105,6 @@ void Bullet::Update(float dt, const std::vector<Tank *> &tanks) {
   }
 }
 
-bool Bullet::IsDead() const { return time <= 0.0f || explodeFrag; }
+bool Bullet::IsDead() const {
+    return time <= 0.0f || explodeFrag;
+}

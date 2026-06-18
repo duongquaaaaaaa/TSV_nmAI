@@ -48,7 +48,7 @@ graph TB
 
 | File | Phụ thuộc Raylib | Vai trò |
 |---|:---:|---|
-| `Constants.h` | ❌ | Hằng số, `PlayerConfig`, `TankActions` |
+| `constants.h` | ❌ | Hằng số, `PlayerConfig`, `TankActions` |
 | `tank.h/.cpp` | ❌ | Logic xe tăng (nhận TankActions) |
 | `bullet.h/.cpp` | ❌ | Logic đạn, tên lửa đuổi |
 | `map.h/.cpp` | ❌ | Sinh mê cung Recursive Backtracker |

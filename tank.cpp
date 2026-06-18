@@ -137,7 +137,7 @@ void Tank::HandleMovement(const TankActions &actions) {
 }
 
 /**
- * @brief Bắn đạn theo vũ khí hiện tại khi actions.shoot = true.
+ * @brief Callback RayCast kiểm tra tường trước khi spawn đạn
  */
 void Tank::FireWeapon(b2World &world, std::vector<Bullet *> &bullets,
                       const TankActions &actions, float bulletLifespan, int maxBullets) {

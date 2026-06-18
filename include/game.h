@@ -1,15 +1,15 @@
 #pragma once
-#include "bullet.h"
 #include "constants.h"
-#include "item.h"
+#include "tank.h"
+#include "bullet.h"
 #include "map.h"
 #include "portal.h"
-#include "tank.h"
+#include "item.h"
 
 /**
  * @class Game
  * @brief Quản lý toàn bộ trạng thái và logic game. KHÔNG phụ thuộc Raylib.
- *
+ * 
  * Thiết kế cho cả human play và RL training:
  * - Human play: main.cpp đọc bàn phím → TankActions → Game::Update()
  * - RL train:   agent output → TankActions → Game::Update() (không cần cửa sổ đồ họa)

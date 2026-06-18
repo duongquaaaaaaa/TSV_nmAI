@@ -36,14 +36,14 @@ class BatchAnalyzer:
                             pass
 
 
-                cpp_proc = subprocess.Popen([_EXE_PATH], cwd=_REPO_ROOT)
-                time.sleep(2)
-
-
                 env_vars = os.environ.copy()
                 env_vars["AZ_ALGO"] = algo
                 env_vars["AZ_HEURISTIC"] = h
                 env_vars["AZ_LOG"] = _LOG_PATH
+                env_vars["AZ_NO_LAUNCH"] = "1"
+
+                cpp_proc = subprocess.Popen([_EXE_PATH], cwd=_REPO_ROOT, env=env_vars)
+                time.sleep(2)
                 
                 ctrl_proc = subprocess.Popen(
                     [sys.executable, os.path.join(_REPO_ROOT, "Astar", "python", "pathfind_controller.py")],

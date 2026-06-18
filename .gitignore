@@ -19,3 +19,7 @@ __pycache__/
 reinforcement learning/models/
 reinforcement learning/logs/
 *.zip
+*.zip
+
+# C++ Dependencies (Downloaded via FetchContent)
+box2d/

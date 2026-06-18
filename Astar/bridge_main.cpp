@@ -329,6 +329,16 @@ void RunBridgeFrame(Game& game, WaypointOverlay& waypointOverlay) {
   DrawWaypointsOverlay(waypointOverlay);
   DrawText("P0: Python via bridge_control.txt", 12, 10, 18, DARKGRAY);
   DrawText("P1: Arrow Keys + / + .", 12, 34, 18, DARKGRAY);
+  
+  const char* envAlgo = std::getenv("AZ_ALGO");
+  const char* envHeuristic = std::getenv("AZ_HEURISTIC");
+  std::string algoStr = envAlgo ? envAlgo : "astar";
+  std::string heuristicStr = envHeuristic ? envHeuristic : "";
+  std::string algoText = "Algo: " + algoStr;
+  if (!heuristicStr.empty() && algoStr == "astar") {
+    algoText += " (" + heuristicStr + ")";
+  }
+  DrawText(algoText.c_str(), 12, 80, 18, MAROON);
   if (waypointOverlay.mazeWidth > 0 && waypointOverlay.mazeHeight > 0) {
     const char* mazeText = TextFormat("maze: %d x %d",
                                       waypointOverlay.mazeWidth,

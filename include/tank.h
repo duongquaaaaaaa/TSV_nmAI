@@ -1,12 +1,13 @@
 #pragma once
-#include "constants.h"
 #include "bullet.h"
+#include "constants.h"
 #include "item.h"
 
 /**
  * @class Tank
- * @brief Xe tăng do người chơi hoặc AI điều khiển. Logic thuần, không phụ thuộc đồ họa.
- * Nhận TankActions thay vì đọc phím trực tiếp → dùng được cho cả human play và RL.
+ * @brief Xe tăng do người chơi hoặc AI điều khiển. Logic thuần, không phụ thuộc
+ * đồ họa. Nhận TankActions thay vì đọc phím trực tiếp → dùng được cho cả human
+ * play và RL.
  */
 class Tank {
 public:
@@ -18,12 +19,12 @@ public:
     int lastHitByPlayerIndex;   ///< Ai bắn viên đạn cuối cùng (NEAT)
     int lastHitBy = -1;         ///< Ai bắn viên đạn cuối cùng (RL)
 
-    ItemType currentWeapon;     ///< Vũ khí đặc biệt đang trang bị
-    int ammo;                   ///< Đạn còn lại của vũ khí đặc biệt
+  ItemType currentWeapon; ///< Vũ khí đặc biệt đang trang bị
+  int ammo;               ///< Đạn còn lại của vũ khí đặc biệt
 
-    bool hasShield;             ///< Trạng thái khiên
-    float shieldTimer;          ///< Thời gian tồn tại khiên
-    float shieldCooldownTimer;  ///< Thời gian chờ kích hoạt lại khiên
+  bool hasShield;            ///< Trạng thái khiên
+  float shieldTimer;         ///< Thời gian tồn tại khiên
+  float shieldCooldownTimer; ///< Thời gian chờ kích hoạt lại khiên
 
     Tank(b2World& world, int _playerIndex);
     void Update(b2World& world, std::vector<Bullet*>& bullets, std::vector<Item*>& items, const TankActions& actions, float dt, bool shieldsEnabled = true, float bulletLifespan = 7.0f, int maxBullets = 3);
