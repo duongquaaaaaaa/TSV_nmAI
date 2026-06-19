@@ -39,6 +39,7 @@ add_executable(AZgame
     "reinforcement learning/bot.cpp"
     "reinforcement learning/ai_bot.cpp"
     "Astar/astar_bot.cpp"
+    "NEAT/neat_bot.cpp"
 )
 target_link_libraries(AZgame PRIVATE box2d raylib)
 target_include_directories(AZgame PRIVATE include "reinforcement learning" Astar NEAT NEAT/core NEAT/train)

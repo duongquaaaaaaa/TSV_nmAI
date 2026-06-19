@@ -10,6 +10,7 @@
 #include "bot.h"
 #include "ai_bot.h"
 #include "Astar/astar_bot.h"
+#include "NEAT/neat_bot.h"
 #include "core/Network.h"
 #include "train/Observation.h"
 #include "train/Curriculum.h"
@@ -125,6 +126,7 @@ int main(int argc, char* argv[]) {
     std::vector<bool> isBot   = {false, true, false, false}; // P1 là người, P2 mặc định là Bot
     std::vector<bool> isAI    = {false, false, false, false}; // Không ai là AI (neural net) mặc định
     std::vector<bool> isAstar = {false, false, false, false}; // A* pathfinding agent mặc định
+    std::vector<bool> isNeat  = {false, false, false, false}; // NEAT agent mặc định
 
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "AZ Game");
     SetTargetFPS(60);
@@ -134,13 +136,14 @@ int main(int argc, char* argv[]) {
     std::vector<Bot*>       bots(4, nullptr);
     std::vector<AIBot*>     aiBots(4, nullptr);
     std::vector<AStarBot*>  astarBots(4, nullptr);
-    if (!watchMode && isBot[1] && !isAI[1] && !isAstar[1]) bots[1] = new Bot(7, 1);
+    std::vector<NeatBot*>   neatBots(4, nullptr);
+    if (!watchMode && isBot[1] && !isAI[1] && !isAstar[1] && !isNeat[1]) bots[1] = new Bot(7, 1);
 
     while (!WindowShouldClose()) {
         // --- Xử lý Settings UI ---
         if (!watchMode && UI::CheckSettingsButtonClicked()) {
             int oldNumPlayers = game.numPlayers;
-            UI::ShowSettingsScreen(game.numPlayers, game.portalsEnabled, game.itemsEnabled, game.shieldsEnabled, game.configs, isBot, isAI, isAstar);
+            UI::ShowSettingsScreen(game.numPlayers, game.portalsEnabled, game.itemsEnabled, game.shieldsEnabled, game.configs, isBot, isAI, isAstar, isNeat);
             if (game.numPlayers != oldNumPlayers) {
                 for (int i = 0; i < 4; i++) game.playerScores[i] = 0;
             }
@@ -151,10 +154,11 @@ int main(int argc, char* argv[]) {
                     if (bots[i])      { delete bots[i];      bots[i]      = nullptr; }
                     if (aiBots[i])   { delete aiBots[i];   aiBots[i]   = nullptr; }
                     if (astarBots[i]){ delete astarBots[i]; astarBots[i] = nullptr; }
+                    if (neatBots[i]) { delete neatBots[i]; neatBots[i] = nullptr; }
                     game.botPaths[i].clear();
                     game.botBounceRays[i].clear();
                 };
-                if (isBot[i] && !isAI[i] && !isAstar[i]) {
+                if (isBot[i] && !isAI[i] && !isAstar[i] && !isNeat[i]) {
                     clearAll();
                     bots[i] = new Bot(7, i);          // Rule-based Bot
                 } else if (isBot[i] && isAstar[i]) {
@@ -163,6 +167,9 @@ int main(int argc, char* argv[]) {
                 } else if (isBot[i] && isAI[i]) {
                     clearAll();
                     aiBots[i] = new AIBot(i);          // Neural Network Bot
+                } else if (isBot[i] && isNeat[i]) {
+                    clearAll();
+                    neatBots[i] = new NeatBot(i, "models/neat_model.bin"); // NEAT Bot
                 } else {
                     clearAll();                        // Người chơi
                 }
@@ -290,6 +297,8 @@ int main(int argc, char* argv[]) {
                 // Chế độ chơi thường: gán phím hoặc Bot AI
                 if (isBot[i] && isAI[i] && aiBots[i]) {
                     actions[i] = aiBots[i]->GetAction(&game);
+                } else if (isBot[i] && isNeat[i] && neatBots[i]) {
+                    actions[i] = neatBots[i]->GetAction(&game);
                 } else if (isBot[i] && isAstar[i] && astarBots[i]) {
                     actions[i] = astarBots[i]->GetAction(&game);
                 } else if (isBot[i] && bots[i]) {
@@ -348,6 +357,7 @@ int main(int argc, char* argv[]) {
         if (bots[i])      delete bots[i];
         if (aiBots[i])   delete aiBots[i];
         if (astarBots[i]) delete astarBots[i];
+        if (neatBots[i])  delete neatBots[i];
     }
     UI::Cleanup();
     CloseWindow();

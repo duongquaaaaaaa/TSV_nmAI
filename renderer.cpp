@@ -124,9 +124,6 @@ void Renderer::DrawEffects() {
     }
 }
 
-// ========================================================================
-// Vẽ toàn bộ thế giới game + hiệu ứng
-// ========================================================================
 void Renderer::DrawWorld(const Game& game) {
     DrawMap(game.map);
     // DrawGrid(game.map); // Debug: Vẽ Grid A* lên màn hình (Removed)
@@ -134,7 +131,7 @@ void Renderer::DrawWorld(const Game& game) {
     for (const Item* item : game.items) DrawItem(*item);
     for (const Tank* t : game.tanks) DrawTank(*t);
     for (const Bullet* b : game.bullets) DrawBullet(*b);
-    DrawBounceRays(game);
+    // DrawBounceRays(game); // Removed to stop rendering bot bounce rays
     DrawEffects();
 }
 
