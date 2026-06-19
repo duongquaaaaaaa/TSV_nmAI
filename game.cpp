@@ -91,10 +91,10 @@ void Game::Update(const std::vector<TankActions>& actions, float dt) {
         if (t->playerIndex < (int)actions.size()) act = actions[t->playerIndex];
         t->Update(world, bullets, items, act, dt, shieldsEnabled, this->bulletLifespan, this->maxBullets);
         if (t->isDestroyed) {
-            recentDeaths.push_back({t->body->GetPosition(), t->playerIndex, t->lastHitByPlayerIndex});
+            recentDeaths.push_back({t->body->GetPosition(), t->playerIndex, t->lastHitBy});
             // Update playerKills if this tank was killed by someone else
-            if (t->lastHitByPlayerIndex >= 0 && t->lastHitByPlayerIndex < 4 && t->lastHitByPlayerIndex != t->playerIndex) {
-                playerKills[t->lastHitByPlayerIndex]++;
+            if (t->lastHitBy >= 0 && t->lastHitBy < 4 && t->lastHitBy != t->playerIndex) {
+                playerKills[t->lastHitBy]++;
             }
             world.DestroyBody(t->body); delete t;
             tanks.erase(tanks.begin() + i);

@@ -238,7 +238,10 @@ std::vector<float> AIBot::CollectObservations(Game* game) {
     std::vector<BulletData> bulletList;
 
     for (auto b : game->bullets) {
-        if (b->time > 0.0f) {
+        // Bỏ qua đạn của chính mình — match với rl_env_wrapper.cpp lúc training:
+        //   if (!b || b->time <= 0 || b->ownerPlayerIndex == 0) continue;
+        // Training luôn dùng player 0, nên ownerPlayerIndex == playerIndex là tương đương.
+        if (b->time > 0.0f && b->ownerPlayerIndex != playerIndex) {
             b2Vec2 bPos = b->body->GetPosition();
             b2Vec2 bVel = b->body->GetLinearVelocity();
             b2Vec2 relPos = myPos - bPos;
