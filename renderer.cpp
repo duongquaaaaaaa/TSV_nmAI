@@ -142,72 +142,16 @@ void Renderer::DrawWorld(const Game& game) {
 // Vẽ đường đi A* (Debug)
 // ========================================================================
 void Renderer::DrawBotPaths(const Game& game) {
-    Color pathColors[4] = {
-        {60, 160, 60, 242},    // P1 (Green)
-        {50, 90, 190, 242},    // P2 (Blue)
-        {190, 50, 50, 242},    // P3 (Red)
-        {210, 180, 50, 242}    // P4 (Yellow)
-    };
-    for (int i = 0; i < 4; i++) {
-        const auto& path = game.botPaths[i];
-        for (size_t j = 0; j < path.size(); j++) {
-            float x = path[j].x * SCALE;
-            float y = SCREEN_HEIGHT - path[j].y * SCALE;
-            DrawCircle((int)x, (int)y, 3.0f, pathColors[i]);
-        }
-    }
+    // Tắt hiển thị đường đi dẫn đường của A*
+    return;
 }
 
 // ========================================================================
 // Debug: Vẽ tia bounce (đường dự đoán nảy tường)
 // ========================================================================
 void Renderer::DrawBounceRays(const Game& game) {
-    Color rayColors[4] = {
-        {60, 255, 60, 180},    // Bot 0: xanh lá
-        {80, 120, 255, 180},   // Bot 1: xanh dương
-        {255, 80, 80, 180},    // Bot 2: đỏ
-        {255, 220, 60, 180},   // Bot 3: vàng
-    };
-    for (int i = 0; i < 4; i++) {
-        const auto& path = game.botBounceRays[i];
-        if (path.size() < 2) continue;
-
-        Color col = rayColors[i];
-        Color colDim = ColorAlpha(col, 0.4f);
-
-        for (size_t j = 0; j < path.size() - 1; j++) {
-            float x1 = path[j].x * SCALE;
-            float y1 = SCREEN_HEIGHT - path[j].y * SCALE;
-            float x2 = path[j+1].x * SCALE;
-            float y2 = SCREEN_HEIGHT - path[j+1].y * SCALE;
-
-            // Tia chính (glow + core)
-            DrawLineEx({x1, y1}, {x2, y2}, 3.0f, colDim);  // Glow
-            DrawLineEx({x1, y1}, {x2, y2}, 1.5f, col);      // Core
-
-            // Điểm bounce (chấm tròn tại mỗi bounce point)
-            if (j > 0) {
-                DrawCircle((int)x1, (int)y1, 4.0f, colDim);
-                DrawCircle((int)x1, (int)y1, 2.5f, col);
-            }
-        }
-
-        // Điểm cuối (enemy hit point)
-        float ex = path.back().x * SCALE;
-        float ey = SCREEN_HEIGHT - path.back().y * SCALE;
-        DrawCircle((int)ex, (int)ey, 5.0f, ColorAlpha(col, 0.3f));
-        DrawCircleLines((int)ex, (int)ey, 5.0f, col);
-
-        // Wall target (crosshair)
-        b2Vec2 tgt = game.botBounceTarget[i];
-        float tx = tgt.x * SCALE;
-        float ty = SCREEN_HEIGHT - tgt.y * SCALE;
-        if (tx > 0 && ty > 0) {
-            DrawCircleLines((int)tx, (int)ty, 8.0f, col);
-            DrawLineEx({tx-10, ty}, {tx+10, ty}, 1.0f, col);
-            DrawLineEx({tx, ty-10}, {tx, ty+10}, 1.0f, col);
-        }
-    }
+    // Tắt hiển thị tia ngắm bắn của bot
+    return;
 }
 
 // ========================================================================

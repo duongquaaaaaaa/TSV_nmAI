@@ -235,7 +235,7 @@ void UI::ShowKeyBindingScreen(int& fw, int& bw, int& tl, int& tr, int& sh, int& 
 // ========================================================================
 void UI::ShowSettingsScreen(int& numPlayers, bool& portalsEnabled, bool& itemsEnabled,
     bool& shieldsEnabled, std::vector<PlayerConfig>& configs,
-    std::vector<bool>& isBot, std::vector<bool>& isAI, std::vector<bool>& isAstar) {
+    std::vector<bool>& isBot, std::vector<bool>& isAI, std::vector<bool>& isAstar, std::vector<bool>& isNeat) {
 
     SetExitKey(0);
 
@@ -290,15 +290,17 @@ void UI::ShowSettingsScreen(int& numPlayers, bool& portalsEnabled, bool& itemsEn
                 if (i < numPlayers) {
                     Rectangle botBtn = {keyBtns[i].x + 150, keyBtns[i].y + 6, 70, 28};
                     if (CheckCollisionPointRec(mouse, botBtn)) {
-                        // Cycle: NGUOI → BOT → A* → AI → NGUOI
+                        // Cycle: NGUOI → BOT → A* → AI → NEAT → NGUOI
                         if (!isBot[i]) {
-                            isBot[i] = true; isAI[i] = false; isAstar[i] = false; // → BOT
-                        } else if (!isAstar[i] && !isAI[i]) {
-                            isAstar[i] = true; isAI[i] = false;                    // → A*
+                            isBot[i] = true; isAI[i] = false; isAstar[i] = false; isNeat[i] = false; // → BOT
+                        } else if (!isAstar[i] && !isAI[i] && !isNeat[i]) {
+                            isAstar[i] = true; isAI[i] = false; isNeat[i] = false;                    // → A*
                         } else if (isAstar[i]) {
-                            isAstar[i] = false; isAI[i] = true;                   // → AI
+                            isAstar[i] = false; isAI[i] = true; isNeat[i] = false;                   // → AI
+                        } else if (isAI[i]) {
+                            isAstar[i] = false; isAI[i] = false; isNeat[i] = true;                   // → NEAT
                         } else {
-                            isBot[i] = false; isAI[i] = false; isAstar[i] = false; // → NGUOI
+                            isBot[i] = false; isAI[i] = false; isAstar[i] = false; isNeat[i] = false; // → NGUOI
                         }
                     } else if (CheckCollisionPointRec(mouse, keyBtns[i]) && !isBot[i]) {
                         ShowKeyBindingScreen(configs[i].fw, configs[i].bw, configs[i].tl,
@@ -409,6 +411,8 @@ void UI::ShowSettingsScreen(int& numPlayers, bool& portalsEnabled, bool& itemsEn
                     botBg = {180, 100, 0, 255};  bTxt = "A*";
                 } else if (isAI[i]) {
                     botBg = {50, 80, 200, 255};  bTxt = "AI";
+                } else if (isNeat[i]) {
+                    botBg = {100, 50, 150, 255}; bTxt = "NEAT";
                 } else {
                     botBg = {180, 50, 50, 255};  bTxt = "BOT";
                 }
@@ -429,7 +433,7 @@ void UI::ShowSettingsScreen(int& numPlayers, bool& portalsEnabled, bool& itemsEn
                 }
                 int sw = MeasureGameText(summary, 13);
                 DrawGameText(summary, keyBtns[i].x + keyBtns[i].width - sw - 15, keyBtns[i].y + 14, 13, {120, 125, 140, 255});
-            } else if (active && isBot[i] && !isAI[i] && !isAstar[i]) {
+            } else if (active && isBot[i] && !isAI[i] && !isAstar[i] && !isNeat[i]) {
                 const char* txt = "Pro Bot Level 7";
                 int sw = MeasureGameText(txt, 14);
                 DrawGameText(txt, keyBtns[i].x + keyBtns[i].width - sw - 15, keyBtns[i].y + 13, 14, {180, 50, 50, 255});
@@ -441,6 +445,10 @@ void UI::ShowSettingsScreen(int& numPlayers, bool& portalsEnabled, bool& itemsEn
                 const char* txt = "AI Neural Network";
                 int sw = MeasureGameText(txt, 14);
                 DrawGameText(txt, keyBtns[i].x + keyBtns[i].width - sw - 15, keyBtns[i].y + 13, 14, {50, 80, 200, 255});
+            } else if (active && isBot[i] && isNeat[i]) {
+                const char* txt = "NEAT Genetic Bot";
+                int sw = MeasureGameText(txt, 14);
+                DrawGameText(txt, keyBtns[i].x + keyBtns[i].width - sw - 15, keyBtns[i].y + 13, 14, {100, 50, 150, 255});
             }
         }
 

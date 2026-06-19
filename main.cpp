@@ -125,6 +125,7 @@ int main(int argc, char* argv[]) {
     std::vector<bool> isBot   = {false, true, false, false}; // P1 là người, P2 mặc định là Bot
     std::vector<bool> isAI    = {false, false, false, false}; // Không ai là AI (neural net) mặc định
     std::vector<bool> isAstar = {false, false, false, false}; // A* pathfinding agent mặc định
+    std::vector<bool> isNeat  = {false, false, false, false}; // Fake NEAT level 6 bot mặc định
 
     if (argc >= 2 && std::string(argv[1]) == "--rl-vs-bot") {
         isBot[0] = true;
@@ -145,8 +146,10 @@ int main(int argc, char* argv[]) {
     std::vector<AStarBot*>  astarBots(4, nullptr);
     if (!watchMode) {
         for (int i = 0; i < 4; i++) {
-            if (isBot[i] && !isAI[i] && !isAstar[i]) {
+            if (isBot[i] && !isAI[i] && !isAstar[i] && !isNeat[i]) {
                 bots[i] = new Bot(7, i);
+            } else if (isBot[i] && isNeat[i]) {
+                bots[i] = new Bot(6, i);
             } else if (isBot[i] && isAstar[i]) {
                 astarBots[i] = new AStarBot(i);
             } else if (isBot[i] && isAI[i]) {
@@ -159,7 +162,7 @@ int main(int argc, char* argv[]) {
         // --- Xử lý Settings UI ---
         if (!watchMode && UI::CheckSettingsButtonClicked()) {
             int oldNumPlayers = game.numPlayers;
-            UI::ShowSettingsScreen(game.numPlayers, game.portalsEnabled, game.itemsEnabled, game.shieldsEnabled, game.configs, isBot, isAI, isAstar);
+            UI::ShowSettingsScreen(game.numPlayers, game.portalsEnabled, game.itemsEnabled, game.shieldsEnabled, game.configs, isBot, isAI, isAstar, isNeat);
             if (game.numPlayers != oldNumPlayers) {
                 for (int i = 0; i < 4; i++) game.playerScores[i] = 0;
             }
@@ -173,9 +176,12 @@ int main(int argc, char* argv[]) {
                     game.botPaths[i].clear();
                     game.botBounceRays[i].clear();
                 };
-                if (isBot[i] && !isAI[i] && !isAstar[i]) {
+                if (isBot[i] && !isAI[i] && !isAstar[i] && !isNeat[i]) {
                     clearAll();
-                    bots[i] = new Bot(7, i);          // Rule-based Bot
+                    bots[i] = new Bot(7, i);          // Rule-based Bot Level 7
+                } else if (isBot[i] && isNeat[i]) {
+                    clearAll();
+                    bots[i] = new Bot(6, i);          // Fake NEAT Bot Level 6
                 } else if (isBot[i] && isAstar[i]) {
                     clearAll();
                     astarBots[i] = new AStarBot(i);   // A* Demo Bot
