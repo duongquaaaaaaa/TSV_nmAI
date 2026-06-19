@@ -143,22 +143,17 @@ void Renderer::DrawWorld(const Game& game) {
 // ========================================================================
 void Renderer::DrawBotPaths(const Game& game) {
     Color pathColors[4] = {
-        {60, 200, 60, 150},
-        {60, 100, 255, 150},
-        {255, 60, 60, 150},
-        {255, 200, 60, 150}
+        {60, 160, 60, 242},    // P1 (Green)
+        {50, 90, 190, 242},    // P2 (Blue)
+        {190, 50, 50, 242},    // P3 (Red)
+        {210, 180, 50, 242}    // P4 (Yellow)
     };
     for (int i = 0; i < 4; i++) {
         const auto& path = game.botPaths[i];
-        if (path.size() >= 2) {
-            for (size_t j = 0; j < path.size() - 1; j++) {
-                float x1 = path[j].x * SCALE;
-                float y1 = SCREEN_HEIGHT - path[j].y * SCALE;
-                float x2 = path[j+1].x * SCALE;
-                float y2 = SCREEN_HEIGHT - path[j+1].y * SCALE;
-                DrawLineEx({x1, y1}, {x2, y2}, 4.0f, pathColors[i]);
-                DrawCircle((int)x2, (int)y2, 5.0f, pathColors[i]);
-            }
+        for (size_t j = 0; j < path.size(); j++) {
+            float x = path[j].x * SCALE;
+            float y = SCREEN_HEIGHT - path[j].y * SCALE;
+            DrawCircle((int)x, (int)y, 3.0f, pathColors[i]);
         }
     }
 }
