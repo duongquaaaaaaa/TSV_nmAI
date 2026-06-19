@@ -16,6 +16,8 @@ public:
     /// Vẽ toàn bộ thế giới game + hiệu ứng
     static void DrawWorld(const Game& game);
 
+    static void DrawBotPaths(const Game& game);
+
 private:
     static void DrawTank(const Tank& tank);
     static void DrawBullet(const Bullet& bullet);
@@ -23,7 +25,6 @@ private:
     static void DrawPortal(const Portal& portal);
     static void DrawItem(const Item& item);
     static void DrawEffects();
-    static void DrawBotPaths(const Game& game);
     static void DrawBounceRays(const Game& game);
     static void DrawGrid(const GameMap& map);
     static void SpawnExplosion(float screenX, float screenY, int playerIndex);

@@ -13,7 +13,7 @@
  * Thiết kế cho cả human play và RL training:
  * - Human play: main.cpp đọc bàn phím → TankActions → Game::Update()
  * - RL train:   agent output → TankActions → Game::Update() (không cần cửa sổ đồ họa)
- * 
+ *
  * Mọi thành viên public để Renderer và RL agent có thể đọc trạng thái.
  */
 class Game {
@@ -28,21 +28,28 @@ public:
 
     // ---- Thông số & cài đặt ----
     float itemSpawnTimer;               ///< Đếm ngược sinh vật phẩm
-    int playerScores[4];                ///< Bảng điểm 4 slot
+    int playerScores[4];                ///< Bảng điểm 4 slot (chiến thắng nhờ sống sót)
+    int playerKills[4];                 ///< [MỚI] Bảng điểm kill thực sự (ai bắn trúng, dùng cho NEAT/RL)
     int numPlayers;                     ///< Số lượng người chơi
     bool needsRestart;                  ///< Cờ cần reset match
     bool portalsEnabled;                ///< Bật/tắt cổng dịch chuyển
     bool itemsEnabled;                  ///< Bật/tắt vật phẩm
     bool shieldsEnabled;                ///< Bật/tắt khiên
-    bool mapEnabled;                    ///< Bật/tắt chướng ngại vật (dùng cho RL Curriculum)
+    bool mapEnabled = true;             ///< Bật/tắt map (Dành cho nhánh RL/NEAT)
+    float bulletLifespan = 7.0f;        ///< [MỚI] Thời gian đạn tồn tại (được chỉnh bởi Curriculum)
+    int maxBullets = 3;                 ///< [MỚI] Giới hạn số đạn bắn ra (mặc định 3 cho thực chiến)
+    MapMode mapMode = MapMode::NORMAL;   ///< Kiểu bản đồ (dùng bởi training curriculum)
 
     // ---- Cấu hình phím (chỉ dùng cho human play) ----
     std::vector<PlayerConfig> configs;
-    std::vector<b2Vec2> botPaths[4]; // Lưu đường đi A* để debug đồ họa
+    std::vector<b2Vec2> botPaths[4];    // Lưu đường đi A* để debug đồ họa
 
-    // ---- Debug: Bounce ray visualization ----
+    // ---- Debug: Bounce ray visualization ────
     std::vector<b2Vec2> botBounceRays[4];   ///< Đường bounce (list of points)
     b2Vec2 botBounceTarget[4] = {};          ///< Wall point đang nhắm
+
+    // ---- Bộ đếm Frame toàn cục (Dùng cho logic AI) ────
+    unsigned int frameCount = 0;
 
     // ---- Sự kiện dùng cho hiệu ứng đồ họa (Renderer đọc) ----
     std::vector<DeathEvent> recentDeaths;  ///< Xe tăng bị tiêu diệt frame này

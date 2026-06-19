@@ -1,0 +1,467 @@
+#include "../core/Population.h"
+#include "AZRandom.h"
+#include "Curriculum.h"
+#include "Fitness.h"
+#include "Observation.h"
+#include "RuleEnemy.h"
+#include "game.h"
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
+#include <memory>
+#include <omp.h>
+#include <string>
+#include <vector>
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Constants
+// ─────────────────────────────────────────────────────────────────────────────
+constexpr float DT = 1.0f / 60.0f;
+constexpr int NUM_INPUTS = 36;
+constexpr int NUM_OUTPUTS = 6;
+constexpr int ASTAR_REFRESH_INTERVAL = 3;
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+static TankActions OutputToActions(const std::vector<float> &out) {
+  TankActions a;
+  a.forward = out[0] > 0.5f && out[0] > out[1];
+  a.backward = out[1] > 0.5f && out[1] > out[0];
+  a.turnLeft = out[2] > 0.5f && out[2] > out[3];
+  a.turnRight = out[3] > 0.5f && out[3] > out[2];
+  a.shoot = out[4] > 0.5f;
+  a.shield = out[5] > 0.5f;
+  return a;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Episode runner
+// ─────────────────────────────────────────────────────────────────────────────
+static float RunEpisode(Network &agentNet, const PhaseConfig &cfg, int seed,
+                        Network *enemyNet = nullptr) {
+  AZ::SRand(seed);
+  Game game;
+  game.numPlayers = 2;
+  game.mapMode = cfg.mapMode;
+  game.itemsEnabled = cfg.itemsEnabled;
+  game.portalsEnabled = cfg.portalsEnabled;
+  game.shieldsEnabled = cfg.shieldsEnabled;
+  game.bulletLifespan = cfg.bulletLifespan;
+  game.maxBullets = cfg.maxBullets;
+
+  game.ResetMatch();
+
+  float fitness = 0.0f;
+  float distToEnemy = 100.0f;
+  if (game.tanks.size() >= 2) {
+    b2Vec2 p1 = game.tanks[0]->body->GetPosition();
+    b2Vec2 p2 = game.tanks[1]->body->GetPosition();
+    distToEnemy = (p2 - p1).Length();
+  }
+
+  int astarCounter = 0;
+  b2Vec2 astarWaypoint = {0, 0};
+  std::vector<float> agentObs(36, 0.0f);
+  std::vector<float> enemyObs(36, 0.0f);
+  std::vector<float> agentOut, enemyOut;
+  int scoresBefore[4] = {0, 0, 0, 0};
+  int killsBefore[4] = {0, 0, 0, 0};
+  for(int i = 0; i < 4; i++) {
+    scoresBefore[i] = game.playerScores[i];
+    killsBefore[i] = game.playerKills[i];
+  }
+  int actualSteps = cfg.maxSteps;
+  bool agentDidShoot = false;
+
+  // ─── LỰA CHỌN ĐỐI THỦ (League Training Logic) ───
+  EnemyType currentEnemy = cfg.enemyType;
+  if (cfg.leagueRate > 0.0f) {
+    if ((AZ::Rand() % 100) < (int)(cfg.leagueRate * 100)) {
+      if (cfg.phase == Phase::PHASE3)
+        currentEnemy = EnemyType::RULE_V1; // P3: Trộn V1 để ôn lách mê cung
+      else if (cfg.phase == Phase::PHASE4)
+        currentEnemy = EnemyType::RULE_V2; // P4: Trộn V2 để ôn bài chiến đấu
+      else if (cfg.phase == Phase::PHASE5)
+        currentEnemy = EnemyType::RULE_V3; // P5: Trộn V3 để giữ chuẩn Sniper
+      else
+        currentEnemy = EnemyType::STATIONARY; // P1,P2: Trộn bao cát đứng yên
+    }
+  }
+
+  for (int step = 0; step < cfg.maxSteps; step++) {
+    // A* recompute: chỉ mỗi N frames để tiết kiệm CPU
+    // (trước đây astarCounter luôn = 0 → recompute MỌI frame vô ích)
+    if (astarCounter <= 0 && game.tanks.size() >= 2) {
+      astarWaypoint =
+          game.map.GetNextWaypoint(game.tanks[0]->body->GetPosition(),
+                                   game.tanks[1]->body->GetPosition());
+      astarCounter = ASTAR_REFRESH_INTERVAL;
+    }
+    astarCounter--;
+
+    GetObservation(game, 0, astarWaypoint, agentObs);
+    agentOut.clear();
+    agentNet.Activate(agentObs, agentOut);
+
+    std::vector<TankActions> actions(game.numPlayers);
+    actions[0] = OutputToActions(agentOut);
+    if (actions[0].shoot)
+      agentDidShoot = true;
+
+    switch (currentEnemy) {
+    case EnemyType::STATIONARY:
+      actions[1] = {};
+      break;
+    case EnemyType::RANDOM: {
+      // CHÚ Ý: main.cpp (watch mode) dùng rand() cho RANDOM enemy.
+      // Train.cpp dùng AZ::Rand() (thread_local, seeded) để đảm bảo
+      // determinism trong từng episode. Đây là intentional.
+      TankActions ra;
+      ra.forward   = (AZ::Rand() % 3 == 0);
+      ra.turnLeft  = (AZ::Rand() % 4 == 0);
+      ra.turnRight = (AZ::Rand() % 4 == 0);
+      // Tần suất bắn: ~1 viên / 1.5 giây @ 60fps
+      ra.shoot  = (AZ::Rand() % 90 == 0);
+      ra.shield = false;
+      actions[1] = ra;
+      break;
+    }
+    case EnemyType::RULE_V1:
+      actions[1] = GetRuleEnemyAction(game, 1, RuleVariant::V1);
+      // CHÚ Ý: main.cpp (watch mode) dòng 214 có thêm 50% suppress shoot cho V1/V2.
+      // Train.cpp KHÔNG làm vậy — training cần độ khó chính xác của enemy.
+      break;
+    case EnemyType::RULE_V2:
+      actions[1] = GetRuleEnemyAction(game, 1, RuleVariant::V2);
+      break;
+    case EnemyType::RULE_V3:
+      actions[1] = GetRuleEnemyAction(game, 1, RuleVariant::V3);
+      break;
+    case EnemyType::SELF_PLAY:
+      if (enemyNet && game.tanks.size() >= 2) {
+        b2Vec2 enemyWp =
+            game.map.GetNextWaypoint(game.tanks[1]->body->GetPosition(),
+                                     game.tanks[0]->body->GetPosition());
+        GetObservation(game, 1, enemyWp, enemyObs);
+        enemyOut.clear();
+        enemyNet->Activate(enemyObs, enemyOut);
+        actions[1] = OutputToActions(enemyOut);
+      } else {
+        actions[1] = {};
+      }
+      break;
+    }
+
+    game.Update(actions, DT);
+
+    // Sau game.Update(), agent có thể đã chết → tanks.size() < 2
+    // Phải check lại trước khi tính reward.
+    if (game.needsRestart) {
+      actualSteps = step + 1;
+      break;
+    }
+
+    // Chỉ tính step reward khi cả 2 tank còn sống
+    if (game.tanks.size() >= 2) {
+      bool canSee = CheckLineOfSight(game, game.tanks[0]->body->GetPosition(),
+                                     game.tanks[1]->body->GetPosition());
+      float prev = distToEnemy;
+      fitness += ComputeStepReward(game, 0, canSee, astarWaypoint, prev,
+                                   distToEnemy, actions[0], agentObs, cfg.phase);
+    }
+  }
+
+  fitness += ComputeEndBonus(game, 0, scoresBefore, killsBefore, actualSteps, cfg.maxSteps,
+                             agentDidShoot, cfg.phase);
+  return fitness;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+static float EvaluateGenome(Genome &genome, const PhaseConfig &cfg,
+                            const std::vector<int> &seeds,
+                            const Genome *frozenEnemy = nullptr) {
+  Network agentNet = Network::FromGenome(genome);
+  std::unique_ptr<Network> enemyNet;
+  if (frozenEnemy && cfg.enemyType == EnemyType::SELF_PLAY) {
+    enemyNet = std::make_unique<Network>(Network::FromGenome(*frozenEnemy));
+  }
+  float total = 0.0f;
+  for (int seed : seeds) {
+    total += RunEpisode(agentNet, cfg, seed, enemyNet.get());
+  }
+  float avg = total / (float)seeds.size();
+  // Complexity penalty: phạt mạng phình, nhưng scale nhẹ hơn
+  // để không triệt tiêu innovation. 216 conns cơ bản = ~0.4 pts.
+  avg -= 0.002f * (float)genome.conns.size();
+  return avg;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+static bool RunPhase(Population &pop, const PhaseConfig &cfg,
+                     const Genome *frozenEnemy, const std::string &outDir,
+                     bool appendLog = false) {
+  printf(
+      "\n╔══════════════════════════════════════════════════════════════╗\n");
+  printf("║  %-60s║\n", cfg.name.c_str());
+  printf("║  Generations: %-5d  Steps/ep: %-6d  Seeds: %-5d         ║\n",
+         cfg.maxGenerations, cfg.maxSteps, cfg.kSeeds);
+  printf("╚══════════════════════════════════════════════════════════════╝\n");
+
+  std::string logPath = outDir + "/" + cfg.name + "_log.csv";
+  bool fileExists = std::filesystem::exists(logPath);
+  FILE *logFile = nullptr;
+  if (appendLog && fileExists) {
+    logFile = fopen(logPath.c_str(), "a");
+  } else {
+    logFile = fopen(logPath.c_str(), "w");
+  }
+  if (logFile) {
+    if (!appendLog || !fileExists) {
+      fprintf(logFile, "gen,best,avg,topKavg,species\n");
+    }
+  }
+
+  int streak = 0;
+  bool promoted = false;
+  const Genome *currentEnemyGen = frozenEnemy;
+  Genome selfPlayOpponentCopy;
+  std::vector<int> lockedSeeds; // [FIX #2] Lock seeds khi đang đếm streak
+
+  for (int gen = 0; gen < cfg.maxGenerations; gen++) {
+    std::vector<int> seeds;
+    if (!lockedSeeds.empty()) {
+      // [FIX #2] Dùng seeds đã lock để đảm bảo streak không phải do may mắn
+      seeds = lockedSeeds;
+    } else {
+      seeds.reserve(cfg.kSeeds);
+      for (int k = 0; k < cfg.kSeeds; k++)
+        seeds.push_back(AZ::Rand()); // DÙNG RANDOM THỰC SỰ TRÁNH TƯƠNG QUAN MÔI TRƯỜNG
+    }
+
+    pop.EvaluateAll([&](Genome &g) -> float {
+      return EvaluateGenome(g, cfg, seeds, currentEnemyGen);
+    });
+
+    float best = -1e30f, avg = 0.0f;
+    int bestIdx = 0;
+    for (int i = 0; i < (int)pop.genomes.size(); i++) {
+      float f = pop.genomes[i].fitness;
+      if (f > best) {
+        best = f;
+        bestIdx = i;
+      }
+      avg += f;
+    }
+    avg /= (float)pop.genomes.size();
+
+    // [FIX #1] Tính top-10% average thay vì dùng single best
+    int topK = std::max(1, (int)(pop.genomes.size() * 0.10f));
+    std::vector<float> fitnesses;
+    fitnesses.reserve(pop.genomes.size());
+    for (auto &g : pop.genomes) fitnesses.push_back(g.fitness);
+    std::partial_sort(fitnesses.begin(), fitnesses.begin() + topK,
+                      fitnesses.end(), std::greater<float>());
+    float topKAvg = 0.0f;
+    for (int i = 0; i < topK; i++) topKAvg += fitnesses[i];
+    topKAvg /= topK;
+
+    // Cập nhật đối thủ Self-play định kỳ mỗi 5 thế hệ (tránh Forgetting problem)
+    if (cfg.enemyType == EnemyType::SELF_PLAY && (gen + 1) % 5 == 0) {
+      selfPlayOpponentCopy = pop.genomes[bestIdx];
+      currentEnemyGen = &selfPlayOpponentCopy;
+      printf("      [Self-Play] Đã cập nhật đối thủ thế hệ tiếp theo thành bản sao tốt nhất thế hệ %d\n", gen + 1);
+    }
+
+    pop.Evolve();
+    pop.PrintStats();
+    printf("      Top10%%Avg: %.1f\n", topKAvg);
+
+    if (logFile) {
+      fprintf(logFile, "%d,%.4f,%.4f,%.4f,%d\n", gen + 1, best, avg, topKAvg,
+              (int)pop.species.size());
+      fflush(logFile);
+    }
+    if ((gen + 1) % 10 == 0) {
+      std::string ckpt =
+          outDir + "/" + cfg.name + "_gen" + std::to_string(gen + 1) + ".bin";
+      if (pop.SaveBest(ckpt))
+        printf("      [Checkpoint: %s]\n", ckpt.c_str());
+    }
+
+    // [FIX #1+#3+#4] Promotion check: dùng topKAvg thay vì best,
+    // minGen 15% thay vì 5%
+    if (cfg.promotionThreshold > 0.0f && topKAvg >= cfg.promotionThreshold) {
+      // [FIX #4] Ép train ít nhất 15% số Generation tối đa
+      int minGen = std::max(20, (int)(cfg.maxGenerations * 0.15f));
+      if (gen >= minGen) {
+        if (streak == 0) {
+          // [FIX #2] Lock seeds khi bắt đầu streak
+          lockedSeeds = seeds;
+          printf("  -> [Streak START] Seeds locked for consistency check\n");
+        }
+        streak++;
+        printf("  -> [Streak: %d/%d] Top10%%Avg %.1f >= threshold %.1f\n",
+               streak, cfg.streakRequired, topKAvg, cfg.promotionThreshold);
+
+        if (streak >= cfg.streakRequired) {
+          // [FIX #5] Validation gate: kiểm tra trên fresh seeds trước khi promote
+          printf("\n  🔍 Validation gate: testing best genome on %d fresh seeds...\n",
+                 cfg.kSeeds * 2);
+          std::vector<int> valSeeds;
+          valSeeds.reserve(cfg.kSeeds * 2);
+          for (int k = 0; k < cfg.kSeeds * 2; k++)
+            valSeeds.push_back(AZ::Rand());
+
+          float valFitness = EvaluateGenome(
+              pop.genomes[bestIdx], cfg, valSeeds, currentEnemyGen);
+          float valThreshold = cfg.promotionThreshold * 0.85f;
+
+          if (valFitness >= valThreshold) {
+            printf("\n  ✅ VALIDATED! Val fitness %.1f >= %.1f. Promotion "
+                   "confirmed!\n",
+                   valFitness, valThreshold);
+            printf("  ✅ Promotion threshold %.1f maintained for %d gens! Next "
+                   "phase.\n",
+                   cfg.promotionThreshold, cfg.streakRequired);
+            promoted = true;
+            break;
+          } else {
+            printf("  ⚠️  Validation FAILED! Val fitness %.1f < %.1f. "
+                   "Streak reset.\n",
+                   valFitness, valThreshold);
+            streak = 0;
+            lockedSeeds.clear();
+          }
+        }
+      } else {
+        printf("  -> Top10%%Avg: %.1f >= threshold. Tiếp tục ép train (Gen: %d/%d)\n",
+               topKAvg, gen, minGen);
+      }
+    } else {
+      if (streak > 0) {
+        printf("  -> Streak broken! (Top10%%Avg %.1f < threshold %.1f)\n",
+               topKAvg, cfg.promotionThreshold);
+        lockedSeeds.clear(); // [FIX #2] Mở khóa seeds khi streak break
+      }
+      streak = 0;
+    }
+  }
+  pop.SaveBest(outDir + "/" + cfg.name + "_final.bin");
+  if (logFile)
+    fclose(logFile);
+  return promoted;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+int main(int argc, char *argv[]) {
+  AZ::g_UseThreadLocalRNG = true; // Bật cờ này để dùng RNG thread_safe đa luồng cho NEAT
+  srand((unsigned int)time(NULL));
+  namespace fs = std::filesystem;
+  if (!fs::exists("agents"))
+    fs::create_directory("agents");
+
+  int numThreads = 8;
+  if (argc >= 2) {
+    numThreads = std::atoi(argv[1]);
+    if (numThreads <= 0)
+      numThreads = 1;
+  }
+  omp_set_num_threads(numThreads);
+
+  printf("\n  AZgame NEAT Trainer v2.1 (Smart Resume)\n\n");
+  printf("  Max threads (OpenMP): %d\n", omp_get_max_threads());
+  printf("  Population : %d\n", NeatCfg::POP_SIZE);
+  printf("  Threads    : %d\n", numThreads);
+  printf("  Output dir : agents/\n\n");
+
+  Population pop(NUM_INPUTS, NUM_OUTPUTS);
+  Genome loadedG;
+  Genome *lastBest = nullptr;
+  int startPhase = 1;
+
+  if (argc >= 3) {
+    std::string ckptPath = argv[2];
+    loadedG = Genome::Load(ckptPath);
+    if (!loadedG.nodes.empty()) {
+      int maxN = 0, maxC = 0;
+      for (auto &n : loadedG.nodes)
+        maxN = std::max(maxN, n.id);
+      for (auto &c : loadedG.conns)
+        maxC = std::max(maxC, c.innovation);
+      InnovationTracker::Get().UpdateCounters(maxN, maxC);
+
+      // [FIX VĐ #5] Giữ genome[0] nguyên bản (elite), mutate phần còn lại
+      // để tạo diversity cho population. Trước đây tất cả 300 genomes giống
+      // hệt nhau → speciation gom vào 1 species → mất khả năng khám phá.
+      for (auto &gen : pop.genomes)
+        gen = loadedG;
+      for (size_t i = 1; i < pop.genomes.size(); i++)
+        pop.genomes[i].Mutate();
+      lastBest = new Genome(loadedG);
+      printf("  [LOADED] Continuing from: %s (MaxID: %d)\n", ckptPath.c_str(),
+             maxN);
+
+      std::string pathLower = ckptPath;
+      for (auto &c : pathLower)
+        c = (char)std::tolower(c);
+
+      if (pathLower.find("phase2") != std::string::npos)
+        startPhase = 2;
+      else if (pathLower.find("phase3") != std::string::npos)
+        startPhase = 3;
+      else if (pathLower.find("phase4") != std::string::npos)
+        startPhase = 4;
+      else if (pathLower.find("phase5") != std::string::npos)
+        startPhase = 5;
+
+      if (startPhase > 1)
+        printf("  [AUTO-SKIP] Jumping to Phase %d\n", startPhase);
+    } else {
+      printf("\n  [FATAL ERROR] Could not load checkpoint: %s\n\n",
+             ckptPath.c_str());
+      exit(1);
+    }
+  }
+
+  for (int p = startPhase; p <= 5; p++) {
+    PhaseConfig cfg = GetPhaseConfig(static_cast<Phase>(p));
+    bool appendLog = (p == startPhase && argc >= 3);
+    bool graduated = RunPhase(pop, cfg, lastBest, "agents", appendLog);
+
+    if (lastBest)
+      delete lastBest;
+    lastBest = new Genome();
+
+    float bFit = -1e30f;
+    int bIdx = 0;
+    for (int i = 0; i < (int)pop.genomes.size(); i++) {
+      if (pop.genomes[i].fitness > bFit) {
+        bFit = pop.genomes[i].fitness;
+        bIdx = i;
+      }
+    }
+    *lastBest = pop.genomes[bIdx];
+    printf("\n      >>> Phase %d Completed. Best Fitness: %.2f\n\n", p, bFit);
+
+    if (!graduated) {
+      printf("\n  ❌ Phase %d: KHÔNG ĐẠT STREAK sau %d generations!\n", p,
+             cfg.maxGenerations);
+      printf("  => Training DỪNG LẠI. Genome tốt nhất đã lưu tại: "
+             "agents/%s_final.bin\n",
+             cfg.name.c_str());
+      printf("  => Bạn có thể:\n");
+      printf("     1. Chạy lại: ./aztrain.exe 4 agents/%s_final.bin\n",
+             cfg.name.c_str());
+      printf("     2. Điều chỉnh Curriculum.h rồi train lại\n");
+      break;
+    }
+  }
+
+  if (lastBest)
+    delete lastBest;
+  return 0;
+}

@@ -358,7 +358,7 @@ void Bot::CollectSensorData() {
         lastEnemyPos = s.enemyPos;
         s.pathRecalculated = true;
     }
-    game->botPaths[playerIndex] = cachedPath;
+    // game->botPaths[playerIndex] = cachedPath;
 
     // ====== LOOK-AHEAD WAYPOINT (fallback cho Movement) ======
     s.moveTarget = s.enemyPos;

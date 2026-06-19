@@ -1,15 +1,16 @@
 #include "tank.h"
 
 /**
- * @brief Tạo xe tăng với thân + nòng. Spawn tại trung tâm (sẽ được đặt lại vị
- * trí bởi Game).
+ * @brief Tạo xe tăng vật lý trong môi trường Box2D.
+ * 
+ * Hình dáng vật lý (RigidBody) của xe tăng gồm 2 khối (Fixture) ghép lại:
+ * 1 khối chữ nhật to làm Thân (Hull) và 1 khối nhỏ dài làm Nòng (Barrel).
  */
 Tank::Tank(b2World &world, int _playerIndex) {
   playerIndex = _playerIndex;
   shootCooldownTimer = 0.0f;
   isDestroyed = false;
   lastHitBy = -1;
-  hp = 1;
   currentWeapon = ItemType::NORMAL;
   ammo = 0;
   hasShield = false;
@@ -34,8 +35,8 @@ Tank::Tank(b2World &world, int _playerIndex) {
   body->CreateFixture(&hullFix);
 
   b2PolygonShape barrelShape;
-  barrelShape.SetAsBox(2.25f / SCALE, 5.25f / SCALE,
-                       b2Vec2(0.0f, 10.5f / SCALE), 0.0f);
+  barrelShape.SetAsBox(2.25f / SCALE, 5.25f / SCALE, b2Vec2(0.0f, 10.5f / SCALE),
+                       0.0f);
   b2FixtureDef barrelFix;
   barrelFix.shape = &barrelShape;
   barrelFix.density = 0.2f;
@@ -45,12 +46,38 @@ Tank::Tank(b2World &world, int _playerIndex) {
 }
 
 /**
- * @brief Cập nhật trạng thái xe tăng: khiên, di chuyển, bắn, va chạm.
- * Nhận TankActions thay vì đọc phím — tương thích cả human play và RL.
+ * @brief Callback RayCast kiểm tra tường (dùng cho laser sight và spawn đạn)
+ */
+class WallRayCastCallback : public b2RayCastCallback {
+public:
+  bool hitWall = false;
+  b2Vec2 hitPoint;
+  float closestFraction = 1.0f;
+  float ReportFixture(b2Fixture *fixture, const b2Vec2 &point,
+                      const b2Vec2 &normal, float fraction) override {
+    if (fixture->GetBody()->GetType() == b2_staticBody) {
+      hitWall = true;
+      if (fraction < closestFraction) {
+        closestFraction = fraction;
+        hitPoint = point;
+      }
+      return fraction;
+    }
+    return -1.0f;
+  }
+};
+
+/**
+ * @brief Cập nhật trạng thái xe tăng (1 Frame) theo Action truyền vào.
+ * 
+ * ĐIỂM CHÚ Ý CHO RL: 
+ * Hàm này KHÔNG check "Nếu phím W được bấm". Nó check `actions.forward`.
+ * Nghĩa là nếu File Python RL truyền `actions.forward = true` vào C++, 
+ * xe tăng sẽ nhận lệnh và tiến lên y như người thật đang chơi.
  */
 void Tank::Update(b2World &world, std::vector<Bullet *> &bullets,
                   std::vector<Item *> &items, const TankActions &actions,
-                  float dt, bool shieldsEnabled) {
+                  float dt, bool shieldsEnabled, float bulletLifespan, int maxBullets) {
   if (shieldCooldownTimer > 0.0f)
     shieldCooldownTimer -= dt;
   if (shieldTimer > 0.0f) {
@@ -68,11 +95,9 @@ void Tank::Update(b2World &world, std::vector<Bullet *> &bullets,
   }
 
   HandleMovement(actions);
-  FireWeapon(world, bullets, actions);
+  FireWeapon(world, bullets, actions, bulletLifespan, maxBullets);
   CheckCollisions(bullets, items);
 }
-
-
 
 /**
  * @brief Di chuyển xe tăng dựa trên TankActions (forward/backward/turn).
@@ -87,9 +112,16 @@ void Tank::HandleMovement(const TankActions &actions) {
     angularVel -= turnSpeed;
   body->SetAngularVelocity(angularVel);
 
+  // Vector vận tốc (velocity) mặc định là (0,0)
   b2Vec2 vel(0.0f, 0.0f);
+  
+  // Tính toán Vector Hướng Mũi Xe (Forward Direction). 
+  // Góc 0 độ của Box2D là hướng sang Phải (Trục X). Do thiết kế màn hình, 
+  // ta dùng sin/cos để tìm ra vector đơn vị chỉ chuẩn hướng mũi xe.
   float currentAngle = body->GetAngle();
   b2Vec2 forwardDir(-sinf(currentAngle), cosf(currentAngle));
+  
+  // Áp dụng Vận tốc Tịnh tiến (Vectơ Tốc độ)
   if (actions.forward) {
     vel.x += forwardDir.x * moveSpeed;
     vel.y += forwardDir.y * moveSpeed;
@@ -98,30 +130,17 @@ void Tank::HandleMovement(const TankActions &actions) {
     vel.x -= forwardDir.x * moveSpeed;
     vel.y -= forwardDir.y * moveSpeed;
   }
+  
+  // Đưa lệnh vận tốc vào Engine Vật Lý. 
+  // Sau lệnh này, phương thức world.Step() ở Game::Update() sẽ tính toán va chạm.
   body->SetLinearVelocity(vel);
 }
 
 /**
  * @brief Callback RayCast kiểm tra tường trước khi spawn đạn
  */
-class WallRayCastCallback : public b2RayCastCallback {
-public:
-  bool hitWall = false;
-  float ReportFixture(b2Fixture *fixture, const b2Vec2 &point,
-                      const b2Vec2 &normal, float fraction) override {
-    if (fixture->GetBody()->GetType() == b2_staticBody) {
-      hitWall = true;
-      return fraction;
-    }
-    return -1.0f;
-  }
-};
-
-/**
- * @brief Bắn đạn theo vũ khí hiện tại khi actions.shoot = true.
- */
 void Tank::FireWeapon(b2World &world, std::vector<Bullet *> &bullets,
-                      const TankActions &actions) {
+                      const TankActions &actions, float bulletLifespan, int maxBullets) {
   int activeMyBullets = 0;
   for (Bullet *b : bullets) {
     if (b->ownerPlayerIndex == playerIndex && !b->isMissile && !b->isFrag)
@@ -134,6 +153,10 @@ void Tank::FireWeapon(b2World &world, std::vector<Bullet *> &bullets,
     b2Vec2 startPos = body->GetPosition();
     b2Vec2 spawnPos = startPos + (22.5f / SCALE) * forwardDir;
 
+    // Kỹ thuật Box2D RayCast: Tránh lỗi bắn đạn xuyên tường
+    // Bắn 1 tia (Ray) từ tâm xe tăng ra ngoài mũi xe. Nếu khoảng cách đó
+    // có vật thể (tường), tia sẽ chặn lại. Ta dùng kết quả để cấm bắn đạn
+    // khi miệng nòng súng đang cắm thẳng vào tường.
     WallRayCastCallback callback;
     world.RayCast(&callback, startPos, spawnPos);
 
@@ -165,7 +188,7 @@ void Tank::FireWeapon(b2World &world, std::vector<Bullet *> &bullets,
                        forwardDir.x * sinA + forwardDir.y * cosA);
             Bullet *b = new Bullet(world, spawnPos, 10.0f * dir, false, false,
                                    false, playerIndex);
-            b->time = 1.0f;
+            b->time = 1.0f; // Tồn tại 1.0s (theo RL)
             bullets.push_back(b);
           }
           shootCooldownTimer = 0.5f;
@@ -190,10 +213,12 @@ void Tank::FireWeapon(b2World &world, std::vector<Bullet *> &bullets,
           break;
         }
         default: {
-          if (activeMyBullets < 3) {
-            bullets.push_back(new Bullet(world, spawnPos, 6.0f * forwardDir,
-                                         false, false, false, playerIndex));
-            shootCooldownTimer = 0.15f;
+          if (activeMyBullets < maxBullets) { 
+            Bullet* b = new Bullet(world, spawnPos, 6.0f * forwardDir,
+                                          false, false, false, playerIndex);
+            b->time = bulletLifespan; // Gán cấu hình từ Curriculum
+            bullets.push_back(b);
+            shootCooldownTimer = 0.15f; 
           }
           break;
         }
@@ -227,9 +252,11 @@ void Tank::CheckCollisions(std::vector<Bullet *> &bullets,
             hasShield = false;
             shieldTimer = 0.0f;
           } else {
-            hp--;
-            isDestroyed = true;
+            hp -= 1;
             lastHitBy = bullet->ownerPlayerIndex;
+            if (hp <= 0) {
+              isDestroyed = true;
+            }
           }
         }
       }
