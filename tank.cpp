@@ -10,7 +10,7 @@ Tank::Tank(b2World &world, int _playerIndex) {
   playerIndex = _playerIndex;
   shootCooldownTimer = 0.0f;
   isDestroyed = false;
-  lastHitByPlayerIndex = -1;
+  lastHitBy = -1;
   currentWeapon = ItemType::NORMAL;
   ammo = 0;
   hasShield = false;
@@ -253,8 +253,7 @@ void Tank::CheckCollisions(std::vector<Bullet *> &bullets,
             shieldTimer = 0.0f;
           } else {
             hp -= 1;
-            lastHitByPlayerIndex = bullet->ownerPlayerIndex;
-            lastHitBy = bullet->ownerPlayerIndex; // Cho RL
+            lastHitBy = bullet->ownerPlayerIndex;
             if (hp <= 0) {
               isDestroyed = true;
             }

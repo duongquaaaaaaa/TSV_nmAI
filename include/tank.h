@@ -16,8 +16,7 @@ public:
     float shootCooldownTimer;   ///< Đếm lùi giữa các lần bắn
     bool isDestroyed;           ///< Cờ xe tăng đã chết
     int hp = 1;                 ///< Máu của xe tăng (RL dùng hp=1)
-    int lastHitByPlayerIndex;   ///< Ai bắn viên đạn cuối cùng (NEAT)
-    int lastHitBy = -1;         ///< Ai bắn viên đạn cuối cùng (RL)
+    int lastHitBy = -1;         ///< Index người chơi đã bắn viên đạn cuối cùng trúng xe này (-1 nếu chưa ai bắn)
 
   ItemType currentWeapon; ///< Vũ khí đặc biệt đang trang bị
   int ammo;               ///< Đạn còn lại của vũ khí đặc biệt
