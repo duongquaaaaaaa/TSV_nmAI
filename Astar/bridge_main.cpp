@@ -223,6 +223,9 @@ void DrawWaypointsOverlay(const WaypointOverlay& overlay) {
     Vector2 p = {overlay.points[i].x * SCALE,
                  SCREEN_HEIGHT - overlay.points[i].y * SCALE};
     
+    if (i > 0) {
+      DrawLineEx(prev, p, 2.0f, ColorAlpha(BLUE, 0.6f));
+    }
 
     DrawCircleV(p, 3.0f, ColorAlpha(BLUE, 0.95f));
     prev = p;
