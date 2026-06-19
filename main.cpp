@@ -126,6 +126,15 @@ int main(int argc, char* argv[]) {
     std::vector<bool> isAI    = {false, false, false, false}; // Không ai là AI (neural net) mặc định
     std::vector<bool> isAstar = {false, false, false, false}; // A* pathfinding agent mặc định
 
+    if (argc >= 2 && std::string(argv[1]) == "--rl-vs-bot") {
+        isBot[0] = true;
+        isAI[0] = true;
+        isBot[1] = true;
+        isAI[1] = false;
+        isAstar[1] = false;
+        game.numPlayers = 2;
+    }
+
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "AZ Game");
     SetTargetFPS(60);
     UI::Init();
@@ -134,7 +143,17 @@ int main(int argc, char* argv[]) {
     std::vector<Bot*>       bots(4, nullptr);
     std::vector<AIBot*>     aiBots(4, nullptr);
     std::vector<AStarBot*>  astarBots(4, nullptr);
-    if (!watchMode && isBot[1] && !isAI[1] && !isAstar[1]) bots[1] = new Bot(7, 1);
+    if (!watchMode) {
+        for (int i = 0; i < 4; i++) {
+            if (isBot[i] && !isAI[i] && !isAstar[i]) {
+                bots[i] = new Bot(7, i);
+            } else if (isBot[i] && isAstar[i]) {
+                astarBots[i] = new AStarBot(i);
+            } else if (isBot[i] && isAI[i]) {
+                aiBots[i] = new AIBot(i);
+            }
+        }
+    }
 
     while (!WindowShouldClose()) {
         // --- Xử lý Settings UI ---

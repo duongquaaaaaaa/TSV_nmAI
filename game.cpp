@@ -6,7 +6,7 @@ bool AZ::g_UseThreadLocalRNG = false;
 /**
  * @brief Khởi tạo Game engine. Không đặt phím mặc định (do main.cpp/RL quyết định).
  */
-Game::Game() : world(b2Vec2(0.0f, 0.0f)), numPlayers(2), needsRestart(true), portalsEnabled(true), itemsEnabled(true), shieldsEnabled(true), mapEnabled(true) {
+Game::Game() : world(b2Vec2(0.0f, 0.0f)), numPlayers(2), needsRestart(true), portalsEnabled(false), itemsEnabled(false), shieldsEnabled(false), mapEnabled(true) {
     itemSpawnTimer = 5.0f;
     for(int i = 0; i < 4; i++) {
         playerScores[i] = 0;
